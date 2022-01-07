@@ -21,8 +21,8 @@
 
 Summary: Utilities from the general purpose cryptography library with TLS implementation
 Name: openssl
-Version: 1.1.1c
-Release: 2%{?dist}
+Version: 1.1.1k
+Release: 5%{?dist}
 Epoch: 1
 # We have to remove certain patented algorithms from the openssl source
 # tarball with the hobble-openssl script which is included below.
@@ -40,10 +40,9 @@ Source13: ectest.c
 # Build changes
 Patch1: openssl-1.1.1-build.patch
 Patch2: openssl-1.1.1-defaults.patch
-Patch3: openssl-1.1.0-no-html.patch
+Patch3: openssl-1.1.1-no-html.patch
 Patch4: openssl-1.1.1-man-rename.patch
-# Bug fixes
-Patch21: openssl-1.1.0-issuer-hash.patch
+
 # Functionality changes
 Patch31: openssl-1.1.1-conf-paths.patch
 Patch32: openssl-1.1.1-version-add-engines.patch
@@ -54,7 +53,6 @@ Patch38: openssl-1.1.1-no-weak-verify.patch
 Patch40: openssl-1.1.1-sslv3-keep-abi.patch
 Patch41: openssl-1.1.1-system-cipherlist.patch
 Patch42: openssl-1.1.1-fips.patch
-Patch43: openssl-1.1.1-ignore-bound.patch
 Patch44: openssl-1.1.1-version-override.patch
 Patch45: openssl-1.1.1-weak-ciphers.patch
 Patch46: openssl-1.1.1-seclevel.patch
@@ -62,14 +60,30 @@ Patch47: openssl-1.1.1-ts-sha256-default.patch
 Patch48: openssl-1.1.1-fips-post-rand.patch
 Patch49: openssl-1.1.1-evp-kdf.patch
 Patch50: openssl-1.1.1-ssh-kdf.patch
+Patch51: openssl-1.1.1-intel-cet.patch
+Patch60: openssl-1.1.1-krb5-kdf.patch
+Patch61: openssl-1.1.1-edk2-build.patch
+Patch62: openssl-1.1.1-fips-curves.patch
+Patch65: openssl-1.1.1-fips-drbg-selftest.patch
+Patch66: openssl-1.1.1-fips-dh.patch
+Patch67: openssl-1.1.1-kdf-selftest.patch
+Patch69: openssl-1.1.1-alpn-cb.patch
+Patch70: openssl-1.1.1-rewire-fips-drbg.patch
+Patch76: openssl-1.1.1-cleanup-peer-point-reneg.patch
+Patch77: openssl-1.1.1-s390x-aes.patch
+Patch78: openssl-1.1.1-detected-addr-ipv6.patch
+Patch79: openssl-1.1.1-servername-cb.patch
+Patch80: openssl-1.1.1-s390x-aes-tests.patch
 # Backported fixes including security fixes
-Patch51: openssl-1.1.1-upstream-sync.patch
 Patch52: openssl-1.1.1-s390x-update.patch
 Patch53: openssl-1.1.1-fips-crng-test.patch
-Patch54: openssl-1.1.1-regression-fixes.patch
+Patch55: openssl-1.1.1-arm-update.patch
+Patch56: openssl-1.1.1-s390x-ecc.patch
+Patch74: openssl-1.1.1-addrconfig.patch
+Patch75: openssl-1.1.1-tls13-curves.patch
+Patch81: openssl-1.1.1-read-buff.patch
 
-License: OpenSSL
-Group: System Environment/Libraries
+License: OpenSSL and ASL 2.0
 URL: http://www.openssl.org/
 BuildRequires: gcc
 BuildRequires: coreutils, perl-interpreter, sed, zlib-devel, /usr/bin/cmp
@@ -80,6 +94,7 @@ BuildRequires: /usr/sbin/sysctl
 BuildRequires: perl(Test::Harness), perl(Test::More), perl(Math::BigInt)
 BuildRequires: perl(Module::Load::Conditional), perl(File::Temp)
 BuildRequires: perl(Time::HiRes)
+BuildRequires: perl(FindBin), perl(lib), perl(File::Compare), perl(File::Copy)
 Requires: coreutils
 Requires: %{name}-libs%{?_isa} = %{epoch}:%{version}-%{release}
 
@@ -91,7 +106,6 @@ protocols.
 
 %package libs
 Summary: A general purpose cryptography library with TLS implementation
-Group: System Environment/Libraries
 Requires: ca-certificates >= 2008-5
 Requires: crypto-policies >= 20180730
 Recommends: openssl-pkcs11%{?_isa}
@@ -107,7 +121,6 @@ support cryptographic algorithms and protocols.
 
 %package devel
 Summary: Files for development of applications which will use OpenSSL
-Group: Development/Libraries
 Requires: %{name}-libs%{?_isa} = %{epoch}:%{version}-%{release}
 Requires: krb5-devel%{?_isa}, zlib-devel%{?_isa}
 Requires: pkgconfig
@@ -119,7 +132,6 @@ support various cryptographic algorithms and protocols.
 
 %package static
 Summary:  Libraries for static linking of applications which will use OpenSSL
-Group: Development/Libraries
 Requires: %{name}-devel%{?_isa} = %{epoch}:%{version}-%{release}
 
 %description static
@@ -130,7 +142,6 @@ protocols.
 
 %package perl
 Summary: Perl scripts provided with OpenSSL
-Group: Applications/Internet
 Requires: perl-interpreter
 Requires: %{name}%{?_isa} = %{epoch}:%{version}-%{release}
 
@@ -154,8 +165,6 @@ cp %{SOURCE13} test/
 %patch3 -p1 -b .no-html  %{?_rawbuild}
 %patch4 -p1 -b .man-rename
 
-%patch21 -p1 -b .issuer-hash
-
 %patch31 -p1 -b .conf-paths
 %patch32 -p1 -b .version-add-engines
 %patch33 -p1 -b .dgst
@@ -165,7 +174,6 @@ cp %{SOURCE13} test/
 %patch40 -p1 -b .sslv3-abi
 %patch41 -p1 -b .system-cipherlist
 %patch42 -p1 -b .fips
-%patch43 -p1 -b .ignore-bound
 %patch44 -p1 -b .version-override
 %patch45 -p1 -b .weak-ciphers
 %patch46 -p1 -b .seclevel
@@ -173,10 +181,27 @@ cp %{SOURCE13} test/
 %patch48 -p1 -b .fips-post-rand
 %patch49 -p1 -b .evp-kdf
 %patch50 -p1 -b .ssh-kdf
-%patch51 -p1 -b .upstream-sync
+%patch51 -p1 -b .intel-cet
 %patch52 -p1 -b .s390x-update
 %patch53 -p1 -b .crng-test
-%patch54 -p1 -b .regression
+%patch55 -p1 -b .arm-update
+%patch56 -p1 -b .s390x-ecc
+%patch60 -p1 -b .krb5-kdf
+%patch61 -p1 -b .edk2-build
+%patch62 -p1 -b .fips-curves
+%patch65 -p1 -b .drbg-selftest
+%patch66 -p1 -b .fips-dh
+%patch67 -p1 -b .kdf-selftest
+%patch69 -p1 -b .alpn-cb
+%patch70 -p1 -b .rewire-fips-drbg
+%patch74 -p1 -b .addrconfig
+%patch75 -p1 -b .tls13-curves
+%patch76 -p1 -b .cleanup-reneg
+%patch77 -p1 -b .s390x-aes
+%patch78 -p1 -b .addr-ipv6
+%patch79 -p1 -b .servername-cb
+%patch80 -p1 -b .s390x-test-aes
+%patch81 -p1 -b .read-buff
 
 
 %build
@@ -461,6 +486,116 @@ export LD_LIBRARY_PATH
 %postun libs -p /sbin/ldconfig
 
 %changelog
+* Fri Nov 12 2021 Sahana Prasad <sahana@redhat.com> - 1:1.1.1k-5
+- CVE-2021-3712 openssl: Read buffer overruns processing ASN.1 strings
+- Resolves: rhbz#2005400
+
+* Fri Jul 16 2021 Sahana Prasad <sahana@redhat.com> - 1:1.1.1k-4
+- Fixes bugs in s390x AES code.
+- Uses the first detected address family if IPv6 is not available
+- Reverts the changes in https://github.com/openssl/openssl/pull/13305
+  as it introduces a regression if server has a DSA key pair, the handshake fails
+  when the protocol is not explicitly set to TLS 1.2. However, if the patch is reverted,
+  it has an effect on the "ssl_reject_handshake" feature in nginx. Although, this feature
+  will continue to work, TLS 1.3 protocol becomes unavailable/disabled. This is already
+  known - https://trac.nginx.org/nginx/ticket/2071#comment:1
+  As per https://github.com/openssl/openssl/issues/16075#issuecomment-879939938, nginx
+  could early callback instead of servername callback.
+- Resolves: rhbz#1978214
+- Related: rhbz#1934534
+
+* Thu Jun 24 2021 Sahana Prasad <sahana@redhat.com> - 1:1.1.1k-3
+- Cleansup the peer point formats on renegotiation
+- Resolves rhbz#1965362
+
+* Wed Jun 23 2021 Dmitry Belyavskiy <dbelyavs@redhat.com> - 1:1.1.1k-2
+- Fixes FIPS_selftest to work in FIPS mode. Resolves: rhbz#1940085
+- Using safe primes for FIPS DH self-test
+
+* Mon May 24 2021 Sahana Prasad <sahana@redhat.com> 1.1.1k-1
+- Update to version 1.1.1k
+
+* Mon Apr 26 2021 Daiki Ueno <dueno@redhat.com> 1.1.1g-16
+- Use AI_ADDRCONFIG only when explicit host name is given
+- Allow only curves defined in RFC 8446 in TLS 1.3
+
+* Fri Apr 16 2021 Dmitry Belyavski <dbelyavs@redhat.com> 1.1.1g-15
+- Remove 2-key 3DES test from FIPS_selftest
+
+* Mon Mar 29 2021 Sahana Prasad <sahana@redhat.com> 1.1.1g-14
+- Fix CVE-2021-3450 openssl: CA certificate check bypass with
+  X509_V_FLAG_X509_STRICT
+- Fix CVE-2021-3449 NULL pointer deref in signature_algorithms processing
+
+* Fri Dec  4 2020 Sahana Prasad <sahana@redhat.com> 1.1.1g-13
+- Fix CVE-2020-1971 ediparty null pointer dereference
+
+* Fri Oct 23 2020 Tomáš Mráz <tmraz@redhat.com> 1.1.1g-12
+- Implemented new FIPS requirements in regards to KDF and DH selftests
+- Disallow certificates with explicit EC parameters
+
+* Mon Jul 20 2020 Tomáš Mráz <tmraz@redhat.com> 1.1.1g-11
+- Further changes for SP 800-56A rev3 requirements
+
+* Tue Jun 23 2020 Tomáš Mráz <tmraz@redhat.com> 1.1.1g-9
+- Rewire FIPS_drbg API to use the RAND_DRBG
+- Use the well known DH groups in TLS even for 2048 and 1024 bit parameters
+
+* Mon Jun  8 2020 Tomáš Mráz <tmraz@redhat.com> 1.1.1g-7
+- Disallow dropping Extended Master Secret extension
+  on renegotiation
+- Return alert from s_server if ALPN protocol does not match
+- SHA1 is allowed in @SECLEVEL=2 only if allowed by
+  TLS SigAlgs configuration
+
+* Wed Jun  3 2020 Tomáš Mráz <tmraz@redhat.com> 1.1.1g-6
+- Add FIPS selftest for PBKDF2 and KBKDF
+
+* Wed May 27 2020 Tomáš Mráz <tmraz@redhat.com> 1.1.1g-5
+- Allow only well known DH groups in the FIPS mode
+
+* Mon May 18 2020 Tomáš Mráz <tmraz@redhat.com> 1.1.1g-1
+- update to the 1.1.1g release
+- FIPS module installed state definition is modified
+
+* Thu Mar  5 2020 Tomáš Mráz <tmraz@redhat.com> 1.1.1c-15
+- add selftest of the RAND_DRBG implementation
+
+* Wed Feb 19 2020 Tomáš Mráz <tmraz@redhat.com> 1.1.1c-14
+- fix incorrect error return value from FIPS_selftest_dsa
+- S390x: properly restore SIGILL signal handler
+
+* Wed Dec  4 2019 Tomáš Mráz <tmraz@redhat.com> 1.1.1c-12
+- additional fix for the edk2 build
+
+* Tue Nov 26 2019 Tomáš Mráz <tmraz@redhat.com> 1.1.1c-9
+- disallow use of SHA-1 signatures in TLS in FIPS mode
+
+* Mon Nov 25 2019 Tomáš Mráz <tmraz@redhat.com> 1.1.1c-8
+- fix CVE-2019-1547 - side-channel weak encryption vulnerability
+- fix CVE-2019-1563 - padding oracle in CMS API
+- fix CVE-2019-1549 - ensure fork safety of the DRBG
+- fix handling of non-FIPS allowed EC curves in FIPS mode
+- fix TLS compliance issues
+
+* Thu Nov 21 2019 Tomáš Mráz <tmraz@redhat.com> 1.1.1c-7
+- backported ARM performance fixes from master
+
+* Wed Nov 20 2019 Tomáš Mráz <tmraz@redhat.com> 1.1.1c-6
+- backport of S390x ECC CPACF enhancements from master
+- FIPS mode: properly disable 1024 bit DSA key generation
+- FIPS mode: skip ED25519 and ED448 algorithms in openssl speed
+- FIPS mode: allow AES-CCM ciphersuites
+
+* Tue Nov 19 2019 Tomáš Mráz <tmraz@redhat.com> 1.1.1c-5
+- make the code suitable for edk2 build
+
+* Thu Nov 14 2019 Tomáš Mráz <tmraz@redhat.com> 1.1.1c-4
+- backport of SSKDF from master
+
+* Wed Nov 13 2019 Tomáš Mráz <tmraz@redhat.com> 1.1.1c-3
+- backport of KBKDF and KRB5KDF from master
+
 * Mon Jun 24 2019 Tomáš Mráz <tmraz@redhat.com> 1.1.1c-2
 - do not try to use EC groups disallowed in FIPS mode
   in TLS
