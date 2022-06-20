@@ -22,7 +22,7 @@
 Summary: Utilities from the general purpose cryptography library with TLS implementation
 Name: openssl
 Version: 1.1.1k
-Release: 5%{?dist}
+Release: 6%{?dist}
 Epoch: 1
 # We have to remove certain patented algorithms from the openssl source
 # tarball with the hobble-openssl script which is included below.
@@ -82,6 +82,7 @@ Patch56: openssl-1.1.1-s390x-ecc.patch
 Patch74: openssl-1.1.1-addrconfig.patch
 Patch75: openssl-1.1.1-tls13-curves.patch
 Patch81: openssl-1.1.1-read-buff.patch
+Patch82: openssl-1.1.1-cve-2022-0778.patch
 
 License: OpenSSL and ASL 2.0
 URL: http://www.openssl.org/
@@ -202,6 +203,7 @@ cp %{SOURCE13} test/
 %patch79 -p1 -b .servername-cb
 %patch80 -p1 -b .s390x-test-aes
 %patch81 -p1 -b .read-buff
+%patch82 -p1 -b .cve-2022-0778
 
 
 %build
@@ -486,6 +488,10 @@ export LD_LIBRARY_PATH
 %postun libs -p /sbin/ldconfig
 
 %changelog
+* Wed Mar 23 2022 Clemens Lang <cllang@redhat.com> - 1:1.1.1k-6
+- Fixes CVE-2022-0778 openssl: Infinite loop in BN_mod_sqrt() reachable when parsing certificates
+- Resolves: rhbz#2067144
+
 * Fri Nov 12 2021 Sahana Prasad <sahana@redhat.com> - 1:1.1.1k-5
 - CVE-2021-3712 openssl: Read buffer overruns processing ASN.1 strings
 - Resolves: rhbz#2005400
