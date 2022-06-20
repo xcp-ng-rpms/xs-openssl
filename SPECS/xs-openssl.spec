@@ -24,7 +24,7 @@
 Summary: Utilities from the general purpose cryptography library with TLS implementation
 Name: xs-openssl
 Version: 1.1.1k
-Release: 5.1%{?dist}
+Release: 5.1.0.nozlib.1%{?dist}
 Epoch: 1
 # We have to remove certain patented algorithms from the openssl source
 # tarball with the hobble-openssl script which is included below.
@@ -92,7 +92,7 @@ License: OpenSSL and ASL 2.0
 URL: http://www.openssl.org/
 BuildRequires: gcc
 # Citrix: 'perl-interpreter' is not provided in some buggy versions of perl.
-BuildRequires: coreutils, perl, sed, zlib-devel, /usr/bin/cmp
+BuildRequires: coreutils, perl, sed, /usr/bin/cmp
 BuildRequires: lksctp-tools-devel
 BuildRequires: /usr/bin/rename
 BuildRequires: /usr/bin/pod2man
@@ -307,7 +307,7 @@ SYS_CIPHERS_FILE=
 	--prefix=%{_prefix} --openssldir=%{_sysconfdir}/pki/tls ${sslflags} \
 	$SYS_CIPHERS_FILE \
 	--system-ciphers-file=%{_sysconfdir}/crypto-policies/back-ends/openssl.config \
-	zlib enable-camellia enable-seed enable-rfc3779 enable-sctp \
+	enable-camellia enable-seed enable-rfc3779 enable-sctp \
 	enable-cms enable-md2 enable-rc5\
 	enable-weak-ssl-ciphers \
 	no-mdc2 no-ec2m no-sm2 no-sm4 \
