@@ -311,7 +311,6 @@ SYS_CIPHERS_FILE=
 ./Configure \
 	--prefix=%{_prefix} --openssldir=%{_sysconfdir}/pki/tls ${sslflags} \
 	$SYS_CIPHERS_FILE \
-	--system-ciphers-file=%{_sysconfdir}/crypto-policies/back-ends/openssl.config \
 	zlib enable-camellia enable-seed enable-rfc3779 enable-sctp \
 	enable-cms enable-md2 enable-rc5\
 	enable-weak-ssl-ciphers \
