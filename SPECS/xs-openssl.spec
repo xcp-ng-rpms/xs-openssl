@@ -24,7 +24,7 @@
 Summary: Utilities from the general purpose cryptography library with TLS implementation
 Name: xs-openssl
 Version: 1.1.1k
-Release: 5.1%{?dist}
+Release: 5.2%{?dist}
 Epoch: 1
 # We have to remove certain patented algorithms from the openssl source
 # tarball with the hobble-openssl script which is included below.
@@ -96,7 +96,7 @@ License: OpenSSL and ASL 2.0
 URL: http://www.openssl.org/
 BuildRequires: gcc
 # Citrix: 'perl-interpreter' is not provided in some buggy versions of perl.
-BuildRequires: coreutils, perl, sed, zlib-devel, /usr/bin/cmp
+BuildRequires: coreutils, perl, sed, /usr/bin/cmp
 BuildRequires: lksctp-tools-devel
 BuildRequires: /usr/bin/rename
 BuildRequires: /usr/bin/pod2man
@@ -136,7 +136,7 @@ support cryptographic algorithms and protocols.
 %package devel
 Summary: Files for development of applications which will use OpenSSL
 Requires: %{name}-libs%{?_isa} = %{epoch}:%{version}-%{release}
-Requires: krb5-devel%{?_isa}, zlib-devel%{?_isa}
+Requires: krb5-devel%{?_isa}
 Requires: pkgconfig
 
 %description devel
@@ -311,7 +311,7 @@ SYS_CIPHERS_FILE=
 ./Configure \
 	--prefix=%{_prefix} --openssldir=%{_sysconfdir}/pki/tls ${sslflags} \
 	$SYS_CIPHERS_FILE \
-	zlib enable-camellia enable-seed enable-rfc3779 enable-sctp \
+	enable-camellia enable-seed enable-rfc3779 enable-sctp \
 	enable-cms enable-md2 enable-rc5\
 	enable-weak-ssl-ciphers \
 	no-mdc2 no-ec2m no-sm2 no-sm4 \
@@ -524,6 +524,11 @@ export LD_LIBRARY_PATH
 %postun libs -p /sbin/ldconfig
 
 %changelog
+* Thu Jun 26 2022 Samuel Verschelde <stormi-xcp@ylix.fr> - 1:1.1.1k-5.2
+- Fix failing tests due to expired certificates in test data
+- Disable zlib to remove TLS compression support
+- Remove extraneous --system-ciphers-file configure option
+
 * Fri Jan 07 2022 Samuel Verschelde <stormi-xcp@ylix.fr> - 1:1.1.1k-5.1
 - Manually sync with CentOS 8's 1.1.1k-5 as Citrix did not update for CH 8.2.1
 - Use the hobbled sources instead of the full sources, as RHEL/CentOS does
