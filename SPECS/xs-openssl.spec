@@ -88,6 +88,10 @@ Patch81: openssl-1.1.1-read-buff.patch
 
 Patch100: use-linux-random-header.patch
 
+# XCP-ng Patches
+# Fix tests failing due to expired test certificates
+Patch1000: openssl-1.1.1-update-expired-SCT-certificates.backport.patch
+
 License: OpenSSL and ASL 2.0
 URL: http://www.openssl.org/
 BuildRequires: gcc
@@ -216,6 +220,7 @@ cp %{SOURCE13} test/
 %patch80 -p1 -b .s390x-test-aes
 %patch81 -p1 -b .read-buff
 %patch100 -p1 -b .linuxrandom
+%patch1000 -p1 -b .fix-tests
 
 
 %build
