@@ -1,4 +1,4 @@
-# spec file based on openssl-1.1.1k-5.el8_5 from CentOS 8.5
+# spec file based on openssl-1.1.1k-6.el8 from CentOS 8.5
 
 # For the curious:
 # 0.9.5a soversion = 0
@@ -24,7 +24,7 @@
 Summary: Utilities from the general purpose cryptography library with TLS implementation
 Name: xs-openssl
 Version: 1.1.1k
-Release: 5.2%{?dist}
+Release: 6.1%{?dist}
 Epoch: 1
 # We have to remove certain patented algorithms from the openssl source
 # tarball with the hobble-openssl script which is included below.
@@ -524,6 +524,13 @@ export LD_LIBRARY_PATH
 %postun libs -p /sbin/ldconfig
 
 %changelog
+* Thu Jun 26 2022 Samuel Verschelde <stormi-xcp@ylix.fr> - 1:1.1.1k-6.1
+- Sync with Centos 8 Stream's 1.1.1k-6.
+- *** Upstream changelog ***
+- * Wed Mar 23 2022 Clemens Lang <cllang@redhat.com> - 1:1.1.1k-6
+- - Fixes CVE-2022-0778 openssl: Infinite loop in BN_mod_sqrt() reachable when parsing certificates
+- - Resolves: rhbz#2067144
+
 * Thu Jun 26 2022 Samuel Verschelde <stormi-xcp@ylix.fr> - 1:1.1.1k-5.2
 - Fix failing tests due to expired certificates in test data
 - Disable zlib to remove TLS compression support
