@@ -24,7 +24,7 @@
 Summary: Utilities from the general purpose cryptography library with TLS implementation
 Name: xs-openssl
 Version: 1.1.1k
-Release: 6.1%{?dist}
+Release: 6.2%{?dist}
 Epoch: 1
 # We have to remove certain patented algorithms from the openssl source
 # tarball with the hobble-openssl script which is included below.
@@ -524,6 +524,9 @@ export LD_LIBRARY_PATH
 %postun libs -p /sbin/ldconfig
 
 %changelog
+* Thu Sep 15 2022 Samuel Verschelde <stormi-xcp@ylix.fr> - 1:1.1.1k-6.2
+- Rebuild for XCP-ng 8.3
+
 * Thu Jun 26 2022 Samuel Verschelde <stormi-xcp@ylix.fr> - 1:1.1.1k-6.1
 - Sync with Centos 8 Stream's 1.1.1k-6.
 - *** Upstream changelog ***
