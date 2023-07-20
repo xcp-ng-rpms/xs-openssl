@@ -524,14 +524,14 @@ export LD_LIBRARY_PATH
 %postun libs -p /sbin/ldconfig
 
 %changelog
-* Thu Jun 26 2022 Samuel Verschelde <stormi-xcp@ylix.fr> - 1:1.1.1k-6.1
+* Thu Jun 23 2022 Samuel Verschelde <stormi-xcp@ylix.fr> - 1:1.1.1k-6.1
 - Sync with Centos 8 Stream's 1.1.1k-6.
 - *** Upstream changelog ***
 - * Wed Mar 23 2022 Clemens Lang <cllang@redhat.com> - 1:1.1.1k-6
 - - Fixes CVE-2022-0778 openssl: Infinite loop in BN_mod_sqrt() reachable when parsing certificates
 - - Resolves: rhbz#2067144
 
-* Thu Jun 26 2022 Samuel Verschelde <stormi-xcp@ylix.fr> - 1:1.1.1k-5.2
+* Thu Jun 23 2022 Samuel Verschelde <stormi-xcp@ylix.fr> - 1:1.1.1k-5.2
 - Fix failing tests due to expired certificates in test data
 - Disable zlib to remove TLS compression support
 - Remove extraneous --system-ciphers-file configure option
