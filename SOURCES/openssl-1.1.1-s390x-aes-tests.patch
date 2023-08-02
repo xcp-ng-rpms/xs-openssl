@@ -1,9 +1,19 @@
-diff -up openssl-1.1.1k/test/evp_extra_test.c.s390x-test-aes openssl-1.1.1k/test/evp_extra_test.c
---- openssl-1.1.1k/test/evp_extra_test.c.s390x-test-aes	2021-07-16 17:33:04.663181698 +0200
-+++ openssl-1.1.1k/test/evp_extra_test.c	2021-07-16 17:49:27.780439742 +0200
-@@ -320,6 +320,97 @@ static const unsigned char pExampleECPar
+From 74ab3c906c532b21f5b03f37ee4e6106fbab328a Mon Sep 17 00:00:00 2001
+From: David Morel <david.morel@vates.fr>
+Date: Mon, 31 Jul 2023 17:54:43 +0200
+Subject: [PATCH 29/32] [A] Patch80: openssl-1.1.1-s390x-aes-tests.patch
+
+---
+ test/evp_extra_test.c | 474 +++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 473 insertions(+), 1 deletion(-)
+
+diff --git a/test/evp_extra_test.c b/test/evp_extra_test.c
+index a0d1de94a2..b89f5d96f3 100644
+--- a/test/evp_extra_test.c
++++ b/test/evp_extra_test.c
+@@ -412,6 +412,97 @@ static const unsigned char gcmResetTag2[] = {
  };
- #endif
+ 
  
 +static const unsigned char kCFBDefaultKey[] = {
 +	0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6, 0xAB, 0xF7, 0x15, 0x88,
@@ -99,9 +109,9 @@ diff -up openssl-1.1.1k/test/evp_extra_test.c.s390x-test-aes openssl-1.1.1k/test
  typedef struct APK_DATA_st {
      const unsigned char *kder;
      size_t size;
-@@ -330,6 +421,385 @@ typedef struct APK_DATA_st {
-     int type; /* 0 for private, 1 for public, 2 for params */
- } APK_DATA;
+@@ -910,6 +1001,385 @@ static int test_evp_updated_iv(int idx)
+     return testresult;
+ }
  
 +typedef struct {
 +    const char *cipher;
@@ -485,9 +495,9 @@ diff -up openssl-1.1.1k/test/evp_extra_test.c.s390x-test-aes openssl-1.1.1k/test
  static APK_DATA keydata[] = {
      {kExampleRSAKeyDER, sizeof(kExampleRSAKeyDER), EVP_PKEY_RSA},
      {kExampleRSAKeyPKCS8, sizeof(kExampleRSAKeyPKCS8), EVP_PKEY_RSA},
-@@ -1208,6 +1678,8 @@ int setup_tests(void)
- #ifndef OPENSSL_NO_DH
-     ADD_TEST(test_EVP_PKEY_set1_DH);
+@@ -2051,6 +2521,8 @@ int setup_tests(void)
+ # endif
+     ADD_TEST(test_cipher_with_engine);
  #endif
 -
 +    ADD_ALL_TESTS(test_evp_init_seq, OSSL_NELEM(evp_init_tests));
@@ -495,3 +505,6 @@ diff -up openssl-1.1.1k/test/evp_extra_test.c.s390x-test-aes openssl-1.1.1k/test
 +    ADD_ALL_TESTS(test_gcm_reinit, OSSL_NELEM(gcm_reinit_tests));
      return 1;
  }
+-- 
+2.41.0
+

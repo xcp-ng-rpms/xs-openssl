@@ -24,7 +24,7 @@
 Summary: Utilities from the general purpose cryptography library with TLS implementation
 Name: xs-openssl
 Version: 1.1.1u
-Release: 6.2%{?dist}
+Release: 6.2%{?dist}.0.test.openssl.1.1.1u.update.1
 Epoch: 1
 # We have to remove certain patented algorithms from the openssl source
 # tarball with the hobble-openssl script which is included below.
@@ -211,16 +211,20 @@ cp %{SOURCE13} test/
 %patch67 -p1 -b .kdf-selftest
 %patch69 -p1 -b .alpn-cb
 %patch70 -p1 -b .rewire-fips-drbg
-%patch74 -p1 -b .addrconfig
+# already present in 1.1.1u
+#%patch74 -p1 -b .addrconfig
 %patch75 -p1 -b .tls13-curves
-%patch76 -p1 -b .cleanup-reneg
-%patch77 -p1 -b .s390x-aes
-%patch78 -p1 -b .addr-ipv6
+# already present in 1.1.1u
+#%patch76 -p1 -b .cleanup-reneg
+#%patch77 -p1 -b .s390x-aes
+#%patch78 -p1 -b .addr-ipv6
 %patch79 -p1 -b .servername-cb
-%patch80 -p1 -b .s390x-test-aes
-%patch81 -p1 -b .read-buff
+# already present in 1.1.1u
+#%patch80 -p1 -b .s390x-test-aes
+#%patch81 -p1 -b .read-buff
 %patch100 -p1 -b .linuxrandom
-%patch1000 -p1 -b .fix-tests
+# already present in 1.1.1u
+#%patch1000 -p1 -b .fix-tests
 
 
 %build
@@ -524,6 +528,9 @@ export LD_LIBRARY_PATH
 %postun libs -p /sbin/ldconfig
 
 %changelog
+* Wed Aug 02 2023 David Morel <david.morel@vates.fr> - 1:1.1.1u-6.2.0.test.openssl.1.1.1u.update.1
+- update to 1.1.1u from upstream openssl
+
 * Thu Sep 15 2022 Samuel Verschelde <stormi-xcp@ylix.fr> - 1:1.1.1k-6.2
 - Rebuild for XCP-ng 8.3
 

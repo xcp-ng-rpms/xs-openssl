@@ -1,12 +1,25 @@
-diff -up openssl-1.1.1i/include/openssl/opensslv.h.version-override openssl-1.1.1i/include/openssl/opensslv.h
---- openssl-1.1.1i/include/openssl/opensslv.h.version-override	2020-12-09 10:25:12.042374409 +0100
-+++ openssl-1.1.1i/include/openssl/opensslv.h	2020-12-09 10:26:00.362769170 +0100
+From e43e03eea41df376651653bb72d64ea9a0081cd2 Mon Sep 17 00:00:00 2001
+From: bleader <bleader@ratonland.org>
+Date: Thu, 27 Jul 2023 17:10:13 +0200
+Subject: [PATCH 03/32] [M] Patch44: openssl-1.1.1-version-override.patch
+
+---
+ include/openssl/opensslv.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/openssl/opensslv.h b/include/openssl/opensslv.h
+index 5ed047d11b..73372b961c 100644
+--- a/include/openssl/opensslv.h
++++ b/include/openssl/opensslv.h
 @@ -40,7 +40,7 @@ extern "C" {
   *  major minor fix final patch/beta)
   */
- # define OPENSSL_VERSION_NUMBER  0x101010bfL
--# define OPENSSL_VERSION_TEXT    "OpenSSL 1.1.1k  25 Mar 2021"
-+# define OPENSSL_VERSION_TEXT    "OpenSSL 1.1.1k  FIPS 25 Mar 2021"
+ # define OPENSSL_VERSION_NUMBER  0x1010115fL
+-# define OPENSSL_VERSION_TEXT    "OpenSSL 1.1.1u  30 May 2023"
++# define OPENSSL_VERSION_TEXT    "OpenSSL 1.1.1u  FIPS 30 May 2023"
  
  /*-
   * The macros below are to be used for shared library (.so, .dll, ...)
+-- 
+2.41.0
+

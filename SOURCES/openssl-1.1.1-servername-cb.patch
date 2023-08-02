@@ -1,7 +1,22 @@
-diff -up openssl-1.1.1k/ssl/statem/statem_lib.c.servername-cb openssl-1.1.1k/ssl/statem/statem_lib.c
---- openssl-1.1.1k/ssl/statem/statem_lib.c.servername-cb	2021-07-16 16:03:04.200024170 +0200
-+++ openssl-1.1.1k/ssl/statem/statem_lib.c	2021-07-16 16:08:04.076630415 +0200
-@@ -1504,8 +1504,8 @@ static int ssl_method_error(const SSL *s
+From 26bf0d5a1bdde811cae0c94e51abcb1927c0dbf6 Mon Sep 17 00:00:00 2001
+From: David Morel <david.morel@vates.fr>
+Date: Tue, 1 Aug 2023 17:55:37 +0200
+Subject: [PATCH 39/43] [M] Patch79: openssl-1.1.1-servername-cb.patch
+
+Patch went crazy in test/sslapitest.c, removed manually the block with
+the same test and the ADD_TEST() of said function. Matches pretty well
+the original patch, unsure about other OPENSSL_NO_TLS1_3 parts, so
+keeping them for now.
+---
+ ssl/statem/statem_lib.c | 15 ++---------
+ test/sslapitest.c       | 55 -----------------------------------------
+ 2 files changed, 2 insertions(+), 68 deletions(-)
+
+diff --git a/ssl/statem/statem_lib.c b/ssl/statem/statem_lib.c
+index 695caab3d6..a2fde9f356 100644
+--- a/ssl/statem/statem_lib.c
++++ b/ssl/statem/statem_lib.c
+@@ -1504,8 +1504,8 @@ static int ssl_method_error(const SSL *s, const SSL_METHOD *method)
  
  /*
   * Only called by servers. Returns 1 if the server has a TLSv1.3 capable
@@ -12,7 +27,7 @@ diff -up openssl-1.1.1k/ssl/statem/statem_lib.c.servername-cb openssl-1.1.1k/ssl
   */
  static int is_tls13_capable(const SSL *s)
  {
-@@ -1515,17 +1515,6 @@ static int is_tls13_capable(const SSL *s
+@@ -1515,17 +1515,6 @@ static int is_tls13_capable(const SSL *s)
      EC_KEY *eckey;
  #endif
  
@@ -30,14 +45,14 @@ diff -up openssl-1.1.1k/ssl/statem/statem_lib.c.servername-cb openssl-1.1.1k/ssl
  #ifndef OPENSSL_NO_PSK
      if (s->psk_server_callback != NULL)
          return 1;
-diff -up openssl-1.1.1k/test/sslapitest.c.servername-cb openssl-1.1.1k/test/sslapitest.c
---- openssl-1.1.1k/test/sslapitest.c.servername-cb	2021-07-16 16:08:20.094823046 +0200
-+++ openssl-1.1.1k/test/sslapitest.c	2021-07-16 16:09:25.708612095 +0200
-@@ -6658,62 +6658,6 @@ static int test_ssl_dup(void)
- }
+diff --git a/test/sslapitest.c b/test/sslapitest.c
+index 5ee982ab06..32343d5e3b 100644
+--- a/test/sslapitest.c
++++ b/test/sslapitest.c
+@@ -6893,60 +6893,6 @@ static int test_ssl_dup(void)
  #endif
  
--#ifndef OPENSSL_NO_TLS1_3
+ #ifndef OPENSSL_NO_TLS1_3
 -/*
 - * Test that setting an SNI callback works with TLSv1.3. Specifically we check
 - * that it works even without a certificate configured for the original
@@ -91,18 +106,18 @@ diff -up openssl-1.1.1k/test/sslapitest.c.servername-cb openssl-1.1.1k/test/ssla
 -    SSL_CTX_free(cctx);
 -    return testresult;
 -}
--#endif
 -
- int setup_tests(void)
- {
-     if (!TEST_ptr(certsdir = test_get_argument(0))
-@@ -6837,9 +6781,6 @@ int setup_tests(void)
- #ifndef OPENSSL_NO_TLS1_2
+ /*
+  * Test that the lifetime hint of a TLSv1.3 ticket is no more than 1 week
+  * 0 = TLSv1.2
+@@ -7412,7 +7358,6 @@ int setup_tests(void)
      ADD_TEST(test_ssl_dup);
  #endif
--#ifndef OPENSSL_NO_TLS1_3
+ #ifndef OPENSSL_NO_TLS1_3
 -    ADD_TEST(test_sni_tls13);
--#endif
-     return 1;
- }
- 
+     ADD_ALL_TESTS(test_ticket_lifetime, 2);
+ #endif
+     ADD_TEST(test_set_alpn);
+-- 
+2.41.0
+

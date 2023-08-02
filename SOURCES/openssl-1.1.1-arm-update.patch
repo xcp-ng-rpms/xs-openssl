@@ -1,6 +1,50 @@
-diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl
---- openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update	2020-12-08 14:20:59.000000000 +0100
-+++ openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl	2020-12-09 10:39:50.645705385 +0100
+From 77e474a5c9657a192ada3beb6420322bd9fba29d Mon Sep 17 00:00:00 2001
+From: David Morel <david.morel@vates.fr>
+Date: Mon, 31 Jul 2023 17:31:50 +0200
+Subject: [PATCH 13/32] [M] Patch55: openssl-1.1.1-arm-update.patch
+
+/!\ Huge difference in the diffstat, patch did apply automatically to
+all files except for aes/asm/aesv8-armx.pl.
+
+For this one, I had to go hunk by hunk in the patch file, find the
+context and apply it by hand. I'm not sure this is any good to be
+honnest, did my best.
+
+Original:
+ aes/asm/aesv8-armx.pl          | 2683 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ aes/asm/vpaes-armv8.pl         |    1
+ chacha/asm/chacha-armv8.pl     |  580 +++++++++++++++++++++++--------------
+ modes/asm/ghashv8-armx.pl      |    1
+ poly1305/asm/poly1305-armv8.pl |    1
+ sha/asm/keccak1600-armv8.pl    |    1
+ sha/asm/sha1-armv8.pl          |    1
+ sha/asm/sha512-armv8.pl        |    1
+ 8 files changed, 3039 insertions(+), 230 deletions(-)
+Staged:
+ crypto/aes/asm/aesv8-armx.pl          | 3137 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-------------
+ crypto/aes/asm/vpaes-armv8.pl         |    1 +
+ crypto/chacha/asm/chacha-armv8.pl     |  586 +++++++++++++++++++------------
+ crypto/modes/asm/ghashv8-armx.pl      |    1 +
+ crypto/poly1305/asm/poly1305-armv8.pl |    1 +
+ crypto/sha/asm/keccak1600-armv8.pl    |    1 +
+ crypto/sha/asm/sha1-armv8.pl          |    1 +
+ crypto/sha/asm/sha512-armv8.pl        |    1 +
+ 8 files changed, 3268 insertions(+), 461 deletions(-)
+---
+ crypto/aes/asm/aesv8-armx.pl          | 3137 +++++++++++++++++++++++--
+ crypto/aes/asm/vpaes-armv8.pl         |    1 +
+ crypto/chacha/asm/chacha-armv8.pl     |  586 +++--
+ crypto/modes/asm/ghashv8-armx.pl      |    1 +
+ crypto/poly1305/asm/poly1305-armv8.pl |    1 +
+ crypto/sha/asm/keccak1600-armv8.pl    |    1 +
+ crypto/sha/asm/sha1-armv8.pl          |    1 +
+ crypto/sha/asm/sha512-armv8.pl        |    1 +
+ 8 files changed, 3268 insertions(+), 461 deletions(-)
+
+diff --git a/crypto/aes/asm/aesv8-armx.pl b/crypto/aes/asm/aesv8-armx.pl
+index 7edc436a53..4332ff190c 100755
+--- a/crypto/aes/asm/aesv8-armx.pl
++++ b/crypto/aes/asm/aesv8-armx.pl
 @@ -27,44 +27,72 @@
  # CBC encrypt case. On Cortex-A57 parallelizable mode performance
  # seems to be limited by sheer amount of NEON instructions...
@@ -85,7 +129,7 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
  ___
  
  # Assembler mnemonics are an eclectic mix of 32- and 64-bit syntax,
-@@ -361,6 +389,836 @@ ___
+@@ -361,21 +389,148 @@ ___
  &gen_block("en");
  &gen_block("de");
  }}}
@@ -114,13 +158,18 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +# performance: one independent code block without LR, FP load and
 +# store, just looks like what the original ECB implementation does.
 +
-+{{{
+ {{{
+-my ($inp,$out,$len,$key,$ivp)=map("x$_",(0..4)); my $enc="w5";
+-my ($rounds,$cnt,$key_,$step,$step1)=($enc,"w6","x7","x8","x12");
+-my ($dat0,$dat1,$in0,$in1,$tmp0,$tmp1,$ivec,$rndlast)=map("q$_",(0..7));
 +my ($inp,$out,$len,$key)=map("x$_",(0..3));
 +my ($enc,$rounds,$cnt,$key_,$step)=("w4","w5","w6","x7","x8");
 +my ($dat0,$dat1,$in0,$in1,$tmp0,$tmp1,$tmp2,$rndlast)=map("q$_",(0..7));
-+
-+my ($dat,$tmp,$rndzero_n_last)=($dat0,$tmp0,$tmp1);
-+
+ 
+ my ($dat,$tmp,$rndzero_n_last)=($dat0,$tmp0,$tmp1);
+-my ($key4,$key5,$key6,$key7)=("x6","x12","x14",$key);
+ 
+-### q8-q15	preloaded key schedule
 +### q7	last round key
 +### q10-q15	q7 Last 7 round keys
 +### q8-q9	preloaded round keys except last 7 keys for big size
@@ -134,11 +183,14 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +if ($flavour =~ /64/) {
 +    ($dat2,$dat3,$dat4,$in2,$in3,$in4,$tmp3,$tmp4)=map("q$_",(16..23));
 +}
-+
-+$code.=<<___;
+ 
+ $code.=<<___;
+-.globl	${prefix}_cbc_encrypt
+-.type	${prefix}_cbc_encrypt,%function
 +.globl	${prefix}_ecb_encrypt
 +.type	${prefix}_ecb_encrypt,%function
-+.align	5
+ .align	5
+-${prefix}_cbc_encrypt:
 +${prefix}_ecb_encrypt:
 +___
 +$code.=<<___	if ($flavour =~ /64/);
@@ -231,41 +283,52 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	vst1.8	{$dat0},[$out]
 +	b	.Lecb_Final_abort
 +.Lecb_big_size:
-+___
-+$code.=<<___	if ($flavour =~ /64/);
-+	stp	x29,x30,[sp,#-16]!
-+	add	x29,sp,#0
-+___
-+$code.=<<___	if ($flavour !~ /64/);
-+	mov	ip,sp
-+	stmdb	sp!,{r4-r8,lr}
+ ___
+ $code.=<<___	if ($flavour =~ /64/);
+ 	stp	x29,x30,[sp,#-16]!
+@@ -384,24 +539,23 @@ ___
+ $code.=<<___	if ($flavour !~ /64/);
+ 	mov	ip,sp
+ 	stmdb	sp!,{r4-r8,lr}
+-	vstmdb	sp!,{d8-d15}            @ ABI specification says so
+-	ldmia	ip,{r4-r5}		@ load remaining args
 +	vstmdb	sp!,{d8-d15}			@ ABI specification says so
 +	ldmia	ip,{r4-r5}			@ load remaining args
 +	subs	$len,$len,#16
-+___
-+$code.=<<___;
-+	mov	$step,#16
+ ___
+ $code.=<<___;
+-	subs	$len,$len,#16
+ 	mov	$step,#16
+-	b.lo	.Lcbc_abort
 +	b.lo	.Lecb_done
-+	cclr	$step,eq
-+
+ 	cclr	$step,eq
+ 
+-	cmp	$enc,#0			// en- or decrypting?
 +	cmp	$enc,#0					// en- or decrypting?
-+	ldr	$rounds,[$key,#240]
-+	and	$len,$len,#-16
-+	vld1.8	{$dat},[$inp],$step
-+
+ 	ldr	$rounds,[$key,#240]
+ 	and	$len,$len,#-16
+-	vld1.8	{$ivec},[$ivp]
+ 	vld1.8	{$dat},[$inp],$step
+ 
+-	vld1.32	{q8-q9},[$key]		// load key schedule...
 +	vld1.32	{q8-q9},[$key]				// load key schedule...
-+	sub	$rounds,$rounds,#6
+ 	sub	$rounds,$rounds,#6
+-	add	$key_,$key,x5,lsl#4	// pointer to last 7 round keys
 +	add	$key_,$key,x5,lsl#4				// pointer to last 7 round keys
-+	sub	$rounds,$rounds,#2
-+	vld1.32	{q10-q11},[$key_],#32
-+	vld1.32	{q12-q13},[$key_],#32
-+	vld1.32	{q14-q15},[$key_],#32
-+	vld1.32	{$rndlast},[$key_]
-+
-+	add	$key_,$key,#32
-+	mov	$cnt,$rounds
+ 	sub	$rounds,$rounds,#2
+ 	vld1.32	{q10-q11},[$key_],#32
+ 	vld1.32	{q12-q13},[$key_],#32
+@@ -410,139 +564,359 @@ $code.=<<___;
+ 
+ 	add	$key_,$key,#32
+ 	mov	$cnt,$rounds
+-	b.eq	.Lcbc_dec
 +	b.eq	.Lecb_dec
-+
+ 
+-	cmp	$rounds,#2
+-	veor	$dat,$dat,$ivec
+-	veor	$rndzero_n_last,q8,$rndlast
+-	b.eq	.Lcbc_enc128
 +	vld1.8	{$dat1},[$inp],#16
 +	subs	$len,$len,#32				// bias
 +	add	$cnt,$rounds,#2
@@ -273,19 +336,51 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	vorr	$dat2,$dat1,$dat1
 +	vorr	$dat1,$dat,$dat
 +	b.lo	.Lecb_enc_tail
-+
+ 
+-	vld1.32	{$in0-$in1},[$key_]
+-	add	$key_,$key,#16
+-	add	$key4,$key,#16*4
+-	add	$key5,$key,#16*5
+-	aese	$dat,q8
+-	aesmc	$dat,$dat
+-	add	$key6,$key,#16*6
+-	add	$key7,$key,#16*7
+-	b	.Lenter_cbc_enc
 +	vorr	$dat1,$in1,$in1
 +	vld1.8	{$dat2},[$inp],#16
 +___
 +$code.=<<___	if ($flavour =~ /64/);
 +	cmp	$len,#32
 +	b.lo	.Loop3x_ecb_enc
-+
+ 
+-.align	4
+-.Loop_cbc_enc:
+-	aese	$dat,q8
+-	aesmc	$dat,$dat
+-	 vst1.8	{$ivec},[$out],#16
+-.Lenter_cbc_enc:
+-	aese	$dat,q9
+-	aesmc	$dat,$dat
+-	aese	$dat,$in0
+-	aesmc	$dat,$dat
+-	vld1.32	{q8},[$key4]
+-	cmp	$rounds,#4
+-	aese	$dat,$in1
+-	aesmc	$dat,$dat
+-	vld1.32	{q9},[$key5]
+-	b.eq	.Lcbc_enc192
 +	vld1.8	{$dat3},[$inp],#16
 +	vld1.8	{$dat4},[$inp],#16
 +	sub	$len,$len,#32				// bias
 +	mov	$cnt,$rounds
-+
+ 
+-	aese	$dat,q8
+-	aesmc	$dat,$dat
+-	vld1.32	{q8},[$key6]
+-	aese	$dat,q9
+-	aesmc	$dat,$dat
+-	vld1.32	{q9},[$key7]
+-	nop
 +.Loop5x_ecb_enc:
 +	aese	$dat0,q8
 +	aesmc	$dat0,$dat0
@@ -427,19 +522,80 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	vst1.8	{$tmp3},[$out],#16
 +	vst1.8	{$tmp4},[$out],#16
 +	b.hs	.Loop5x_ecb_enc
-+
+ 
+-.Lcbc_enc192:
+-	aese	$dat,q8
+-	aesmc	$dat,$dat
+-	 subs	$len,$len,#16
+-	aese	$dat,q9
+-	aesmc	$dat,$dat
+-	 cclr	$step,eq
+-	aese	$dat,q10
+-	aesmc	$dat,$dat
+-	aese	$dat,q11
+-	aesmc	$dat,$dat
+-	 vld1.8	{q8},[$inp],$step
+-	aese	$dat,q12
+-	aesmc	$dat,$dat
+-	 veor	q8,q8,$rndzero_n_last
+-	aese	$dat,q13
+-	aesmc	$dat,$dat
+-	 vld1.32 {q9},[$key_]		// re-pre-load rndkey[1]
+-	aese	$dat,q14
+-	aesmc	$dat,$dat
+-	aese	$dat,q15
+-	veor	$ivec,$dat,$rndlast
+-	b.hs	.Loop_cbc_enc
 +	add	$len,$len,#0x50
 +	cbz	$len,.Lecb_done
-+
+ 
+-	vst1.8	{$ivec},[$out],#16
+-	b	.Lcbc_done
 +	add	$cnt,$rounds,#2
 +	subs	$len,$len,#0x30
 +	vorr	$dat0,$in2,$in2
 +	vorr	$dat1,$in3,$in3
 +	vorr	$dat2,$in4,$in4
 +	b.lo	.Lecb_enc_tail
-+
+ 
+-.align	5
+-.Lcbc_enc128:
+-	vld1.32	{$in0-$in1},[$key_]
+-	aese	$dat,q8
+-	aesmc	$dat,$dat
+-	b	.Lenter_cbc_enc128
+-.Loop_cbc_enc128:
+-	aese	$dat,q8
+-	aesmc	$dat,$dat
+-	 vst1.8	{$ivec},[$out],#16
+-.Lenter_cbc_enc128:
+-	aese	$dat,q9
+-	aesmc	$dat,$dat
+-	 subs	$len,$len,#16
+-	aese	$dat,$in0
+-	aesmc	$dat,$dat
+-	 cclr	$step,eq
+-	aese	$dat,$in1
+-	aesmc	$dat,$dat
+-	aese	$dat,q10
+-	aesmc	$dat,$dat
+-	aese	$dat,q11
+-	aesmc	$dat,$dat
+-	 vld1.8	{q8},[$inp],$step
+-	aese	$dat,q12
+-	aesmc	$dat,$dat
+-	aese	$dat,q13
+-	aesmc	$dat,$dat
+-	aese	$dat,q14
+-	aesmc	$dat,$dat
+-	 veor	q8,q8,$rndzero_n_last
+-	aese	$dat,q15
+-	veor	$ivec,$dat,$rndlast
+-	b.hs	.Loop_cbc_enc128
 +	b	.Loop3x_ecb_enc
-+
+ 
+-	vst1.8	{$ivec},[$out],#16
+-	b	.Lcbc_done
 +.align	4
 +.Lecb_enc_tail4x:
 +	veor	$tmp1,$rndlast,$dat1
@@ -453,7 +609,9 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +
 +	b	.Lecb_done
 +.align	4
-+___
+ ___
+-{
+-my ($dat2,$in2,$tmp2)=map("q$_",(10,11,9));
 +$code.=<<___;
 +.Loop3x_ecb_enc:
 +	aese	$dat0,q8
@@ -583,61 +741,76 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	b	.Lecb_done
 +___
 +
-+$code.=<<___;
-+.align	5
+ $code.=<<___;
+ .align	5
+-.Lcbc_dec:
+-	vld1.8	{$dat2},[$inp],#16
+-	subs	$len,$len,#32		// bias
 +.Lecb_dec:
 +	vld1.8	{$dat1},[$inp],#16
 +	subs	$len,$len,#32			// bias
-+	add	$cnt,$rounds,#2
+ 	add	$cnt,$rounds,#2
+-	vorr	$in1,$dat,$dat
 +	vorr	$in1,$dat1,$dat1
 +	vorr	$dat2,$dat1,$dat1
-+	vorr	$dat1,$dat,$dat
+ 	vorr	$dat1,$dat,$dat
+-	vorr	$in2,$dat2,$dat2
+-	b.lo	.Lcbc_dec_tail
 +	b.lo	.Lecb_dec_tail
-+
+ 
+-	vorr	$dat1,$dat2,$dat2
 +	vorr	$dat1,$in1,$in1
-+	vld1.8	{$dat2},[$inp],#16
+ 	vld1.8	{$dat2},[$inp],#16
+-	vorr	$in0,$dat,$dat
+-	vorr	$in1,$dat1,$dat1
+-	vorr	$in2,$dat2,$dat2
 +___
 +$code.=<<___	if ($flavour =~ /64/);
 +	cmp	$len,#32
 +	b.lo	.Loop3x_ecb_dec
-+
+ 
+-.Loop3x_cbc_dec:
 +	vld1.8	{$dat3},[$inp],#16
 +	vld1.8	{$dat4},[$inp],#16
 +	sub	$len,$len,#32				// bias
 +	mov	$cnt,$rounds
 +
 +.Loop5x_ecb_dec:
-+	aesd	$dat0,q8
-+	aesimc	$dat0,$dat0
-+	aesd	$dat1,q8
-+	aesimc	$dat1,$dat1
-+	aesd	$dat2,q8
-+	aesimc	$dat2,$dat2
+ 	aesd	$dat0,q8
+ 	aesimc	$dat0,$dat0
+ 	aesd	$dat1,q8
+ 	aesimc	$dat1,$dat1
+ 	aesd	$dat2,q8
+ 	aesimc	$dat2,$dat2
 +	aesd	$dat3,q8
 +	aesimc	$dat3,$dat3
 +	aesd	$dat4,q8
 +	aesimc	$dat4,$dat4
-+	vld1.32	{q8},[$key_],#16
-+	subs	$cnt,$cnt,#2
-+	aesd	$dat0,q9
-+	aesimc	$dat0,$dat0
-+	aesd	$dat1,q9
-+	aesimc	$dat1,$dat1
-+	aesd	$dat2,q9
-+	aesimc	$dat2,$dat2
+ 	vld1.32	{q8},[$key_],#16
+ 	subs	$cnt,$cnt,#2
+ 	aesd	$dat0,q9
+@@ -551,8 +925,12 @@ $code.=<<___;
+ 	aesimc	$dat1,$dat1
+ 	aesd	$dat2,q9
+ 	aesimc	$dat2,$dat2
 +	aesd	$dat3,q9
 +	aesimc	$dat3,$dat3
 +	aesd	$dat4,q9
 +	aesimc	$dat4,$dat4
-+	vld1.32	{q9},[$key_],#16
+ 	vld1.32	{q9},[$key_],#16
+-	b.gt	.Loop3x_cbc_dec
 +	b.gt	.Loop5x_ecb_dec
-+
-+	aesd	$dat0,q8
-+	aesimc	$dat0,$dat0
-+	aesd	$dat1,q8
-+	aesimc	$dat1,$dat1
-+	aesd	$dat2,q8
-+	aesimc	$dat2,$dat2
+ 
+ 	aesd	$dat0,q8
+ 	aesimc	$dat0,$dat0
+@@ -560,62 +938,738 @@ $code.=<<___;
+ 	aesimc	$dat1,$dat1
+ 	aesd	$dat2,q8
+ 	aesimc	$dat2,$dat2
+-	 veor	$tmp0,$ivec,$rndlast
+-	 subs	$len,$len,#0x30
+-	 veor	$tmp1,$in0,$rndlast
+-	 mov.lo	x6,$len			// x6, $cnt, is zero at this point
 +	aesd	$dat3,q8
 +	aesimc	$dat3,$dat3
 +	aesd	$dat4,q8
@@ -645,12 +818,18 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	cmp	$len,#0x40				// because .Lecb_tail4x
 +	sub	$len,$len,#0x50
 +
-+	aesd	$dat0,q9
-+	aesimc	$dat0,$dat0
-+	aesd	$dat1,q9
-+	aesimc	$dat1,$dat1
-+	aesd	$dat2,q9
-+	aesimc	$dat2,$dat2
+ 	aesd	$dat0,q9
+ 	aesimc	$dat0,$dat0
+ 	aesd	$dat1,q9
+ 	aesimc	$dat1,$dat1
+ 	aesd	$dat2,q9
+ 	aesimc	$dat2,$dat2
+-	 veor	$tmp2,$in1,$rndlast
+-	 add	$inp,$inp,x6		// $inp is adjusted in such way that
+-					// at exit from the loop $dat1-$dat2
+-					// are loaded with last "words"
+-	 vorr	$ivec,$in2,$in2
+-	 mov	$key_,$key
 +	aesd	$dat3,q9
 +	aesimc	$dat3,$dat3
 +	aesd	$dat4,q9
@@ -684,44 +863,53 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	aesd	$dat4,q11
 +	aesimc	$dat4,$dat4
 +
-+	aesd	$dat0,q12
-+	aesimc	$dat0,$dat0
-+	aesd	$dat1,q12
-+	aesimc	$dat1,$dat1
-+	aesd	$dat2,q12
-+	aesimc	$dat2,$dat2
+ 	aesd	$dat0,q12
+ 	aesimc	$dat0,$dat0
+ 	aesd	$dat1,q12
+ 	aesimc	$dat1,$dat1
+ 	aesd	$dat2,q12
+ 	aesimc	$dat2,$dat2
+-	 vld1.8	{$in0},[$inp],#16
 +	aesd	$dat3,q12
 +	aesimc	$dat3,$dat3
 +	aesd	$dat4,q12
 +	aesimc	$dat4,$dat4
 +
-+	aesd	$dat0,q13
-+	aesimc	$dat0,$dat0
-+	aesd	$dat1,q13
-+	aesimc	$dat1,$dat1
-+	aesd	$dat2,q13
-+	aesimc	$dat2,$dat2
+ 	aesd	$dat0,q13
+ 	aesimc	$dat0,$dat0
+ 	aesd	$dat1,q13
+ 	aesimc	$dat1,$dat1
+ 	aesd	$dat2,q13
+ 	aesimc	$dat2,$dat2
+-	 vld1.8	{$in1},[$inp],#16
 +	aesd	$dat3,q13
 +	aesimc	$dat3,$dat3
 +	aesd	$dat4,q13
 +	aesimc	$dat4,$dat4
 +
-+	aesd	$dat0,q14
-+	aesimc	$dat0,$dat0
-+	aesd	$dat1,q14
-+	aesimc	$dat1,$dat1
-+	aesd	$dat2,q14
-+	aesimc	$dat2,$dat2
+ 	aesd	$dat0,q14
+ 	aesimc	$dat0,$dat0
+ 	aesd	$dat1,q14
+ 	aesimc	$dat1,$dat1
+ 	aesd	$dat2,q14
+ 	aesimc	$dat2,$dat2
+-	 vld1.8	{$in2},[$inp],#16
 +	aesd	$dat3,q14
 +	aesimc	$dat3,$dat3
 +	aesd	$dat4,q14
 +	aesimc	$dat4,$dat4
 +
-+	aesd	$dat0,q15
+ 	aesd	$dat0,q15
 +	vld1.8	{$in0},[$inp],#16
-+	aesd	$dat1,q15
+ 	aesd	$dat1,q15
 +	vld1.8	{$in1},[$inp],#16
-+	aesd	$dat2,q15
+ 	aesd	$dat2,q15
+-	 vld1.32 {q8},[$key_],#16	// re-pre-load rndkey[0]
+-	 add	$cnt,$rounds,#2
+-	veor	$tmp0,$tmp0,$dat0
+-	veor	$tmp1,$tmp1,$dat1
+-	veor	$dat2,$dat2,$tmp2
+-	 vld1.32 {q9},[$key_],#16	// re-pre-load rndkey[1]
 +	vld1.8	{$in2},[$inp],#16
 +	aesd	$dat3,q15
 +	vld1.8	{$in3},[$inp],#16
@@ -738,16 +926,23 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	veor	$tmp3,$rndlast,$dat3
 +	vorr	$dat3,$in3,$in3
 +	veor	$tmp4,$rndlast,$dat4
-+	vst1.8	{$tmp0},[$out],#16
+ 	vst1.8	{$tmp0},[$out],#16
+-	 vorr	$dat0,$in0,$in0
 +	vorr	$dat4,$in4,$in4
-+	vst1.8	{$tmp1},[$out],#16
+ 	vst1.8	{$tmp1},[$out],#16
+-	 vorr	$dat1,$in1,$in1
+-	vst1.8	{$dat2},[$out],#16
+-	 vorr	$dat2,$in2,$in2
+-	b.hs	.Loop3x_cbc_dec
 +	mov	$cnt,$rounds
 +	vst1.8	{$tmp2},[$out],#16
 +	vld1.32 {q9},[$key_],#16			// re-pre-load rndkey[1]
 +	vst1.8	{$tmp3},[$out],#16
 +	vst1.8	{$tmp4},[$out],#16
 +	b.hs	.Loop5x_ecb_dec
-+
+ 
+-	cmn	$len,#0x30
+-	b.eq	.Lcbc_done
 +	add	$len,$len,#0x50
 +	cbz	$len,.Lecb_done
 +
@@ -919,13 +1114,164 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +.size	${prefix}_ecb_encrypt,.-${prefix}_ecb_encrypt
 +___
 +}}}
- {{{
- my ($inp,$out,$len,$key,$ivp)=map("x$_",(0..4)); my $enc="w5";
- my ($rounds,$cnt,$key_,$step,$step1)=($enc,"w6","x7","x8","x12");
-@@ -519,6 +1377,13 @@ $code.=<<___;
- ___
- {
- my ($dat2,$in2,$tmp2)=map("q$_",(10,11,9));
++{{{
++my ($inp,$out,$len,$key,$ivp)=map("x$_",(0..4)); my $enc="w5";
++my ($rounds,$cnt,$key_,$step,$step1)=($enc,"w6","x7","x8","x12");
++my ($dat0,$dat1,$in0,$in1,$tmp0,$tmp1,$ivec,$rndlast)=map("q$_",(0..7));
++
++my ($dat,$tmp,$rndzero_n_last)=($dat0,$tmp0,$tmp1);
++my ($key4,$key5,$key6,$key7)=("x6","x12","x14",$key);
++
++### q8-q15	preloaded key schedule
++
++$code.=<<___;
++.globl	${prefix}_cbc_encrypt
++.type	${prefix}_cbc_encrypt,%function
++.align	5
++${prefix}_cbc_encrypt:
++___
++$code.=<<___	if ($flavour =~ /64/);
++	stp	x29,x30,[sp,#-16]!
++	add	x29,sp,#0
++___
++$code.=<<___	if ($flavour !~ /64/);
++	mov	ip,sp
++	stmdb	sp!,{r4-r8,lr}
++	vstmdb	sp!,{d8-d15}            @ ABI specification says so
++	ldmia	ip,{r4-r5}		@ load remaining args
++___
++$code.=<<___;
++	subs	$len,$len,#16
++	mov	$step,#16
++	b.lo	.Lcbc_abort
++	cclr	$step,eq
++
++	cmp	$enc,#0			// en- or decrypting?
++	ldr	$rounds,[$key,#240]
++	and	$len,$len,#-16
++	vld1.8	{$ivec},[$ivp]
++	vld1.8	{$dat},[$inp],$step
++
++	vld1.32	{q8-q9},[$key]		// load key schedule...
++	sub	$rounds,$rounds,#6
++	add	$key_,$key,x5,lsl#4	// pointer to last 7 round keys
++	sub	$rounds,$rounds,#2
++	vld1.32	{q10-q11},[$key_],#32
++	vld1.32	{q12-q13},[$key_],#32
++	vld1.32	{q14-q15},[$key_],#32
++	vld1.32	{$rndlast},[$key_]
++
++	add	$key_,$key,#32
++	mov	$cnt,$rounds
++	b.eq	.Lcbc_dec
++
++	cmp	$rounds,#2
++	veor	$dat,$dat,$ivec
++	veor	$rndzero_n_last,q8,$rndlast
++	b.eq	.Lcbc_enc128
++
++	vld1.32	{$in0-$in1},[$key_]
++	add	$key_,$key,#16
++	add	$key4,$key,#16*4
++	add	$key5,$key,#16*5
++	aese	$dat,q8
++	aesmc	$dat,$dat
++	add	$key6,$key,#16*6
++	add	$key7,$key,#16*7
++	b	.Lenter_cbc_enc
++
++.align	4
++.Loop_cbc_enc:
++	aese	$dat,q8
++	aesmc	$dat,$dat
++	 vst1.8	{$ivec},[$out],#16
++.Lenter_cbc_enc:
++	aese	$dat,q9
++	aesmc	$dat,$dat
++	aese	$dat,$in0
++	aesmc	$dat,$dat
++	vld1.32	{q8},[$key4]
++	cmp	$rounds,#4
++	aese	$dat,$in1
++	aesmc	$dat,$dat
++	vld1.32	{q9},[$key5]
++	b.eq	.Lcbc_enc192
++
++	aese	$dat,q8
++	aesmc	$dat,$dat
++	vld1.32	{q8},[$key6]
++	aese	$dat,q9
++	aesmc	$dat,$dat
++	vld1.32	{q9},[$key7]
++	nop
++
++.Lcbc_enc192:
++	aese	$dat,q8
++	aesmc	$dat,$dat
++	 subs	$len,$len,#16
++	aese	$dat,q9
++	aesmc	$dat,$dat
++	 cclr	$step,eq
++	aese	$dat,q10
++	aesmc	$dat,$dat
++	aese	$dat,q11
++	aesmc	$dat,$dat
++	 vld1.8	{q8},[$inp],$step
++	aese	$dat,q12
++	aesmc	$dat,$dat
++	 veor	q8,q8,$rndzero_n_last
++	aese	$dat,q13
++	aesmc	$dat,$dat
++	 vld1.32 {q9},[$key_]		// re-pre-load rndkey[1]
++	aese	$dat,q14
++	aesmc	$dat,$dat
++	aese	$dat,q15
++	veor	$ivec,$dat,$rndlast
++	b.hs	.Loop_cbc_enc
++
++	vst1.8	{$ivec},[$out],#16
++	b	.Lcbc_done
++
++.align	5
++.Lcbc_enc128:
++	vld1.32	{$in0-$in1},[$key_]
++	aese	$dat,q8
++	aesmc	$dat,$dat
++	b	.Lenter_cbc_enc128
++.Loop_cbc_enc128:
++	aese	$dat,q8
++	aesmc	$dat,$dat
++	 vst1.8	{$ivec},[$out],#16
++.Lenter_cbc_enc128:
++	aese	$dat,q9
++	aesmc	$dat,$dat
++	 subs	$len,$len,#16
++	aese	$dat,$in0
++	aesmc	$dat,$dat
++	 cclr	$step,eq
++	aese	$dat,$in1
++	aesmc	$dat,$dat
++	aese	$dat,q10
++	aesmc	$dat,$dat
++	aese	$dat,q11
++	aesmc	$dat,$dat
++	 vld1.8	{q8},[$inp],$step
++	aese	$dat,q12
++	aesmc	$dat,$dat
++	aese	$dat,q13
++	aesmc	$dat,$dat
++	aese	$dat,q14
++	aesmc	$dat,$dat
++	 veor	q8,q8,$rndzero_n_last
++	aese	$dat,q15
++	veor	$ivec,$dat,$rndlast
++	b.hs	.Loop_cbc_enc128
++
++	vst1.8	{$ivec},[$out],#16
++	b	.Lcbc_done
++___
++{
++my ($dat2,$in2,$tmp2)=map("q$_",(10,11,9));
 +
 +my ($dat3,$in3,$tmp3);	# used only in 64-bit mode
 +my ($dat4,$in4,$tmp4);
@@ -933,13 +1279,22 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +    ($dat2,$dat3,$dat4,$in2,$in3,$in4,$tmp3,$tmp4)=map("q$_",(16..23));
 +}
 +
- $code.=<<___;
- .align	5
- .Lcbc_dec:
-@@ -535,7 +1400,196 @@ $code.=<<___;
- 	vorr	$in0,$dat,$dat
- 	vorr	$in1,$dat1,$dat1
- 	vorr	$in2,$dat2,$dat2
++$code.=<<___;
++.align	5
++.Lcbc_dec:
++	vld1.8	{$dat2},[$inp],#16
++	subs	$len,$len,#32		// bias
++	add	$cnt,$rounds,#2
++	vorr	$in1,$dat,$dat
++	vorr	$dat1,$dat,$dat
++	vorr	$in2,$dat2,$dat2
++	b.lo	.Lcbc_dec_tail
++
++	vorr	$dat1,$dat2,$dat2
++	vld1.8	{$dat2},[$inp],#16
++	vorr	$in0,$dat,$dat
++	vorr	$in1,$dat1,$dat1
++	vorr	$in2,$dat2,$dat2
 +___
 +$code.=<<___	if ($flavour =~ /64/);
 +	cmp	$len,#32
@@ -1062,7 +1417,7 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	aesimc	$dat3,$dat3
 +	aesd	$dat4,q14
 +	aesimc	$dat4,$dat4
- 
++ 
 +	 veor	$tmp0,$ivec,$rndlast
 +	aesd	$dat0,q15
 +	 veor	$tmp1,$in0,$rndlast
@@ -1130,9 +1485,89 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +.align	4
 +___
 +$code.=<<___;
- .Loop3x_cbc_dec:
- 	aesd	$dat0,q8
- 	aesimc	$dat0,$dat0
++.Loop3x_cbc_dec:
++	aesd	$dat0,q8
++	aesimc	$dat0,$dat0
++	aesd	$dat1,q8
++	aesimc	$dat1,$dat1
++	aesd	$dat2,q8
++	aesimc	$dat2,$dat2
++	vld1.32	{q8},[$key_],#16
++	subs	$cnt,$cnt,#2
++	aesd	$dat0,q9
++	aesimc	$dat0,$dat0
++	aesd	$dat1,q9
++	aesimc	$dat1,$dat1
++	aesd	$dat2,q9
++	aesimc	$dat2,$dat2
++	vld1.32	{q9},[$key_],#16
++	b.gt	.Loop3x_cbc_dec
++
++	aesd	$dat0,q8
++	aesimc	$dat0,$dat0
++	aesd	$dat1,q8
++	aesimc	$dat1,$dat1
++	aesd	$dat2,q8
++	aesimc	$dat2,$dat2
++	 veor	$tmp0,$ivec,$rndlast
++	 subs	$len,$len,#0x30
++	 veor	$tmp1,$in0,$rndlast
++	 mov.lo	x6,$len			// x6, $cnt, is zero at this point
++	aesd	$dat0,q9
++	aesimc	$dat0,$dat0
++	aesd	$dat1,q9
++	aesimc	$dat1,$dat1
++	aesd	$dat2,q9
++	aesimc	$dat2,$dat2
++	 veor	$tmp2,$in1,$rndlast
++	 add	$inp,$inp,x6		// $inp is adjusted in such way that
++					// at exit from the loop $dat1-$dat2
++					// are loaded with last "words"
++	 vorr	$ivec,$in2,$in2
++	 mov	$key_,$key
++	aesd	$dat0,q12
++	aesimc	$dat0,$dat0
++	aesd	$dat1,q12
++	aesimc	$dat1,$dat1
++	aesd	$dat2,q12
++	aesimc	$dat2,$dat2
++	 vld1.8	{$in0},[$inp],#16
++	aesd	$dat0,q13
++	aesimc	$dat0,$dat0
++	aesd	$dat1,q13
++	aesimc	$dat1,$dat1
++	aesd	$dat2,q13
++	aesimc	$dat2,$dat2
++	 vld1.8	{$in1},[$inp],#16
++	aesd	$dat0,q14
++	aesimc	$dat0,$dat0
++	aesd	$dat1,q14
++	aesimc	$dat1,$dat1
++	aesd	$dat2,q14
++	aesimc	$dat2,$dat2
++	 vld1.8	{$in2},[$inp],#16
++	aesd	$dat0,q15
++	aesd	$dat1,q15
++	aesd	$dat2,q15
++	 vld1.32 {q8},[$key_],#16	// re-pre-load rndkey[0]
++	 add	$cnt,$rounds,#2
++	veor	$tmp0,$tmp0,$dat0
++	veor	$tmp1,$tmp1,$dat1
++	veor	$dat2,$dat2,$tmp2
++	 vld1.32 {q9},[$key_],#16	// re-pre-load rndkey[1]
++	vst1.8	{$tmp0},[$out],#16
++	 vorr	$dat0,$in0,$in0
++	vst1.8	{$tmp1},[$out],#16
++	 vorr	$dat1,$in1,$in1
++	vst1.8	{$dat2},[$out],#16
++	 vorr	$dat2,$in2,$in2
++	b.hs	.Loop3x_cbc_dec
++
++	cmn	$len,#0x30
++	b.eq	.Lcbc_done
+ 	nop
+ 
+ .Lcbc_dec_tail:
 @@ -696,6 +1750,9 @@ my $step="x12";		# aliases with $tctr2
  my ($dat0,$dat1,$in0,$in1,$tmp0,$tmp1,$ivec,$rndlast)=map("q$_",(0..7));
  my ($dat2,$in2,$tmp2)=map("q$_",(10,11,9));
@@ -1143,10 +1578,16 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
  my ($dat,$tmp)=($dat0,$tmp0);
  
  ### q8-q15	preloaded key schedule
-@@ -751,6 +1808,175 @@ $code.=<<___;
- 	vmov.32		${ivec}[3],$tctr2
- 	sub		$len,$len,#3		// bias
- 	vorr		$dat2,$ivec,$ivec
+@@ -762,10 +1819,177 @@ $code.=<<___	if ($flavour !~ /64/);
+ 	add		$ctr, $ctr, #2
+ 	vorr		$dat1,$ivec,$ivec
+ 	b.ls		.Lctr32_tail
+-	rev		$tctr2, $ctr
+-	vmov.32		${ivec}[3],$tctr2
++	rev		$tctr2, $ctr
++	vmov.32		${ivec}[3],$tctr2
++	sub		$len,$len,#3		// bias
++	vorr		$dat2,$ivec,$ivec
 +___
 +$code.=<<___	if ($flavour =~ /64/);
 +	cmp		$len,#2
@@ -1312,17 +1753,105 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	cclr		$step,lo
 +	b.ls		.Lctr32_tail
 +
-+	sub		$len,$len,#3		// bias
+ 	sub		$len,$len,#3		// bias
+-	vorr		$dat2,$ivec,$ivec
 +	add		$ctr,$ctr,#3
+ ___
+ $code.=<<___;
+ 	b		.Loop3x_ctr32
+@@ -888,84 +2112,1510 @@ $code.=<<___;
+ 	aese		$tmp1,q15
+ 	aese		$tmp2,q15
+ 
+-	veor		$in0,$in0,$tmp0
+-	 vld1.32	 {q8},[$key_],#16	// re-pre-load rndkey[0]
+-	vst1.8		{$in0},[$out],#16
+-	veor		$in1,$in1,$tmp1
+-	 mov		$cnt,$rounds
+-	vst1.8		{$in1},[$out],#16
+-	veor		$in2,$in2,$tmp2
+-	 vld1.32	 {q9},[$key_],#16	// re-pre-load rndkey[1]
+-	vst1.8		{$in2},[$out],#16
+-	b.hs		.Loop3x_ctr32
++	veor		$in0,$in0,$tmp0
++	 vld1.32	 {q8},[$key_],#16	// re-pre-load rndkey[0]
++	vst1.8		{$in0},[$out],#16
++	veor		$in1,$in1,$tmp1
++	 mov		$cnt,$rounds
++	vst1.8		{$in1},[$out],#16
++	veor		$in2,$in2,$tmp2
++	 vld1.32	 {q9},[$key_],#16	// re-pre-load rndkey[1]
++	vst1.8		{$in2},[$out],#16
++	b.hs		.Loop3x_ctr32
++
++	adds		$len,$len,#3
++	b.eq		.Lctr32_done
++	cmp		$len,#1
++	mov		$step,#16
++	cclr		$step,eq
++
++.Lctr32_tail:
++	aese		$dat0,q8
++	aesmc		$dat0,$dat0
++	aese		$dat1,q8
++	aesmc		$dat1,$dat1
++	vld1.32		{q8},[$key_],#16
++	subs		$cnt,$cnt,#2
++	aese		$dat0,q9
++	aesmc		$dat0,$dat0
++	aese		$dat1,q9
++	aesmc		$dat1,$dat1
++	vld1.32		{q9},[$key_],#16
++	b.gt		.Lctr32_tail
++
++	aese		$dat0,q8
++	aesmc		$dat0,$dat0
++	aese		$dat1,q8
++	aesmc		$dat1,$dat1
++	aese		$dat0,q9
++	aesmc		$dat0,$dat0
++	aese		$dat1,q9
++	aesmc		$dat1,$dat1
++	 vld1.8		{$in0},[$inp],$step
++	aese		$dat0,q12
++	aesmc		$dat0,$dat0
++	aese		$dat1,q12
++	aesmc		$dat1,$dat1
++	 vld1.8		{$in1},[$inp]
++	aese		$dat0,q13
++	aesmc		$dat0,$dat0
++	aese		$dat1,q13
++	aesmc		$dat1,$dat1
++	 veor		$in0,$in0,$rndlast
++	aese		$dat0,q14
++	aesmc		$dat0,$dat0
++	aese		$dat1,q14
++	aesmc		$dat1,$dat1
++	 veor		$in1,$in1,$rndlast
++	aese		$dat0,q15
++	aese		$dat1,q15
++
++	cmp		$len,#1
++	veor		$in0,$in0,$dat0
++	veor		$in1,$in1,$dat1
++	vst1.8		{$in0},[$out],#16
++	b.eq		.Lctr32_done
++	vst1.8		{$in1},[$out]
++
++.Lctr32_done:
++___
++$code.=<<___	if ($flavour !~ /64/);
++	vldmia		sp!,{d8-d15}
++	ldmia		sp!,{r4-r10,pc}
++___
++$code.=<<___	if ($flavour =~ /64/);
++	ldr		x29,[sp],#16
++	ret
 +___
 +$code.=<<___;
- 	b		.Loop3x_ctr32
- 
- .align	4
-@@ -905,6 +2131,1432 @@ $code.=<<___;
- .size	${prefix}_ctr32_encrypt_blocks,.-${prefix}_ctr32_encrypt_blocks
- ___
- }}}
++.size	${prefix}_ctr32_encrypt_blocks,.-${prefix}_ctr32_encrypt_blocks
++___
++}}}
 +# Performance in cycles per byte.
 +# Processed with AES-XTS different key size.
 +# It shows the value before and after optimization as below:
@@ -2266,7 +2795,12 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	sub $len,$len,#32			// bias
 +	mov	$rounds,$rounds0
 +	b	.Loop5x_xts_dec
-+
+ 
+-	adds		$len,$len,#3
+-	b.eq		.Lctr32_done
+-	cmp		$len,#1
+-	mov		$step,#16
+-	cclr		$step,eq
 +.align	4
 +.Loop5x_xts_dec:
 +	aesd	$dat0,q8
@@ -2293,7 +2827,20 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	aesimc	$dat4,$dat4
 +	vld1.32	{q9},[$key_],#16		// load key schedule...
 +	b.gt	.Loop5x_xts_dec
-+
+ 
+-.Lctr32_tail:
+-	aese		$dat0,q8
+-	aesmc		$dat0,$dat0
+-	aese		$dat1,q8
+-	aesmc		$dat1,$dat1
+-	vld1.32		{q8},[$key_],#16
+-	subs		$cnt,$cnt,#2
+-	aese		$dat0,q9
+-	aesmc		$dat0,$dat0
+-	aese		$dat1,q9
+-	aesmc		$dat1,$dat1
+-	vld1.32		{q9},[$key_],#16
+-	b.gt		.Lctr32_tail
 +	aesd	$dat0,q8
 +	aesimc	$dat0,$dat0
 +	aesd	$dat1,q8
@@ -2305,7 +2852,33 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	aesd	$dat4,q8
 +	aesimc	$dat4,$dat4
 +	subs	$len,$len,#0x50			// because .Lxts_dec_tail4x
-+
+ 
+-	aese		$dat0,q8
+-	aesmc		$dat0,$dat0
+-	aese		$dat1,q8
+-	aesmc		$dat1,$dat1
+-	aese		$dat0,q9
+-	aesmc		$dat0,$dat0
+-	aese		$dat1,q9
+-	aesmc		$dat1,$dat1
+-	 vld1.8		{$in0},[$inp],$step
+-	aese		$dat0,q12
+-	aesmc		$dat0,$dat0
+-	aese		$dat1,q12
+-	aesmc		$dat1,$dat1
+-	 vld1.8		{$in1},[$inp]
+-	aese		$dat0,q13
+-	aesmc		$dat0,$dat0
+-	aese		$dat1,q13
+-	aesmc		$dat1,$dat1
+-	 veor		$in0,$in0,$rndlast
+-	aese		$dat0,q14
+-	aesmc		$dat0,$dat0
+-	aese		$dat1,q14
+-	aesmc		$dat1,$dat1
+-	 veor		$in1,$in1,$rndlast
+-	aese		$dat0,q15
+-	aese		$dat1,q15
 +	aesd	$dat0,q9
 +	aesimc	$dat0,$dat
 +	aesd	$dat1,q9
@@ -2344,7 +2917,13 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	aesimc	$dat3,$dat3
 +	aesd	$dat4,q11
 +	aesimc	$dat4,$dat4
-+
+ 
+-	cmp		$len,#1
+-	veor		$in0,$in0,$dat0
+-	veor		$in1,$in1,$dat1
+-	vst1.8		{$in0},[$out],#16
+-	b.eq		.Lctr32_done
+-	vst1.8		{$in1},[$out]
 +	aesd	$dat0,q12
 +	aesimc	$dat0,$dat0
 +	aesd	$dat1,q12
@@ -2355,7 +2934,15 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	aesimc	$dat3,$dat3
 +	aesd	$dat4,q12
 +	aesimc	$dat4,$dat4
-+
+ 
+-.Lctr32_done:
+-___
+-$code.=<<___	if ($flavour !~ /64/);
+-	vldmia		sp!,{d8-d15}
+-	ldmia		sp!,{r4-r10,pc}
+-___
+-$code.=<<___	if ($flavour =~ /64/);
+-	ldr		x29,[sp],#16
 +	aesd	$dat0,q13
 +	aesimc	$dat0,$dat0
 +	aesd	$dat1,q13
@@ -2744,15 +3331,17 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
 +	ldp	$constnumx,$tmpinp,[sp],#64
 +
 +.Lxts_dec_final_abort:
-+	ret
+ 	ret
 +.size	${prefix}_xts_decrypt,.-${prefix}_xts_decrypt
-+___
+ ___
+-$code.=<<___;
+-.size	${prefix}_ctr32_encrypt_blocks,.-${prefix}_ctr32_encrypt_blocks
+-___
 +}
-+}}}
+ }}}
  $code.=<<___;
  #endif
- ___
-@@ -963,7 +3615,7 @@ if ($flavour =~ /64/) {			######## 64-bi
+@@ -1025,7 +3675,7 @@ if ($flavour =~ /64/) {			######## 64-bit code
  	    # since ARMv7 instructions are always encoded little-endian.
  	    # correct solution is to use .inst directive, but older
  	    # assemblers don't implement it:-(
@@ -2761,7 +3350,7 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
  			$word&0xff,($word>>8)&0xff,
  			($word>>16)&0xff,($word>>24)&0xff,
  			$mnemonic,$arg;
-@@ -1004,14 +3656,17 @@ if ($flavour =~ /64/) {			######## 64-bi
+@@ -1066,14 +3716,17 @@ if ($flavour =~ /64/) {			######## 64-bit code
  	s/\],#[0-9]+/]!/o;
  
  	s/[v]?(aes\w+)\s+([qv].*)/unaes($1,$2)/geo	or
@@ -2781,9 +3370,10 @@ diff -up openssl-1.1.1i/crypto/aes/asm/aesv8-armx.pl.arm-update openssl-1.1.1i/c
  	print $_,"\n";
      }
  }
-diff -up openssl-1.1.1i/crypto/aes/asm/vpaes-armv8.pl.arm-update openssl-1.1.1i/crypto/aes/asm/vpaes-armv8.pl
---- openssl-1.1.1i/crypto/aes/asm/vpaes-armv8.pl.arm-update	2020-12-08 14:20:59.000000000 +0100
-+++ openssl-1.1.1i/crypto/aes/asm/vpaes-armv8.pl	2020-12-09 10:37:38.405558929 +0100
+diff --git a/crypto/aes/asm/vpaes-armv8.pl b/crypto/aes/asm/vpaes-armv8.pl
+index 7a9ffbd7d9..52e5b7f1fb 100755
+--- a/crypto/aes/asm/vpaes-armv8.pl
++++ b/crypto/aes/asm/vpaes-armv8.pl
 @@ -30,6 +30,7 @@
  # Denver(***)       16.6(**)    15.1/17.8(**)    [8.80/9.93         ]
  # Apple A7(***)     22.7(**)    10.9/14.3        [8.45/10.0         ]
@@ -2792,9 +3382,10 @@ diff -up openssl-1.1.1i/crypto/aes/asm/vpaes-armv8.pl.arm-update openssl-1.1.1i/
  #
  # (*)	ECB denotes approximate result for parallelizable modes
  #	such as CBC decrypt, CTR, etc.;
-diff -up openssl-1.1.1i/crypto/chacha/asm/chacha-armv8.pl.arm-update openssl-1.1.1i/crypto/chacha/asm/chacha-armv8.pl
---- openssl-1.1.1i/crypto/chacha/asm/chacha-armv8.pl.arm-update	2020-12-08 14:20:59.000000000 +0100
-+++ openssl-1.1.1i/crypto/chacha/asm/chacha-armv8.pl	2020-12-09 10:40:57.922288627 +0100
+diff --git a/crypto/chacha/asm/chacha-armv8.pl b/crypto/chacha/asm/chacha-armv8.pl
+index 84c9801480..b8882ebac2 100755
+--- a/crypto/chacha/asm/chacha-armv8.pl
++++ b/crypto/chacha/asm/chacha-armv8.pl
 @@ -18,32 +18,44 @@
  #
  # ChaCha20 for ARMv8.
@@ -2855,7 +3446,7 @@ diff -up openssl-1.1.1i/crypto/chacha/asm/chacha-armv8.pl.arm-update openssl-1.1
  *STDOUT=*OUT;
  
  sub AUTOLOAD()		# thunk [simplified] x86-style perlasm
-@@ -120,42 +132,37 @@ my ($a3,$b3,$c3,$d3)=map(($_&~3)+(($_+1)
+@@ -120,42 +132,37 @@ my ($a3,$b3,$c3,$d3)=map(($_&~3)+(($_+1)&3),($a2,$b2,$c2,$d2));
  }
  
  $code.=<<___;
@@ -3416,14 +4007,15 @@ diff -up openssl-1.1.1i/crypto/chacha/asm/chacha-armv8.pl.arm-update openssl-1.1
  	sub	$len,$len,#64
  	cmp	$len,#64
 -	b.lo	.Less_than_128
-+	b.lo	.Last_neon
- 
+-
 -	ld1.8	{$T0-$T3},[$inp],#64
 -	eor	$A0,$A0,$T0
 -	eor	$B0,$B0,$T1
 -	eor	$C0,$C0,$T2
 -	eor	$D0,$D0,$T3
 -	st1.8	{$A0-$D0},[$out],#64
++	b.lo	.Last_neon
++
 +	ld1.8	{$xt0-$xt3},[$inp],#64
 +	eor	$xa0,$xa0,$xt0
 +	eor	$xb0,$xb0,$xt1
@@ -3438,15 +4030,16 @@ diff -up openssl-1.1.1i/crypto/chacha/asm/chacha-armv8.pl.arm-update openssl-1.1
 +	add	$xc0,$xc1,@K[2]
  	cmp	$len,#64
 -	b.lo	.Less_than_192
-+	add	$xd0,$xd1,@K[3]
-+	b.lo	.Last_neon
- 
+-
 -	ld1.8	{$T0-$T3},[$inp],#64
 -	eor	$A1,$A1,$T0
 -	eor	$B1,$B1,$T1
 -	eor	$C1,$C1,$T2
 -	eor	$D1,$D1,$T3
 -	st1.8	{$A1-$D1},[$out],#64
++	add	$xd0,$xd1,@K[3]
++	b.lo	.Last_neon
++
 +	ld1.8	{$xt0-$xt3},[$inp],#64
 +	eor	$xa1,$xa0,$xt0
 +	eor	$xb1,$xb0,$xt1
@@ -3454,17 +4047,18 @@ diff -up openssl-1.1.1i/crypto/chacha/asm/chacha-armv8.pl.arm-update openssl-1.1
 +	eor	$xd1,$xd0,$xt3
 +	st1.8	{$xa1-$xd1},[$out],#64
  	b.eq	.Ldone_neon
-+
+-	sub	$len,$len,#64
+ 
+-	st1.8	{$A2-$D2},[sp]
+-	b	.Last_neon
 +	add	$xa0,$xa2,@K[0]
 +	add	$xb0,$xb2,@K[1]
- 	sub	$len,$len,#64
++	sub	$len,$len,#64
 +	add	$xc0,$xc2,@K[2]
 +	cmp	$len,#64
 +	add	$xd0,$xd2,@K[3]
 +	b.lo	.Last_neon
- 
--	st1.8	{$A2-$D2},[sp]
--	b	.Last_neon
++
 +	ld1.8	{$xt0-$xt3},[$inp],#64
 +	eor	$xa2,$xa0,$xt0
 +	eor	$xb2,$xb0,$xt1
@@ -3649,9 +4243,10 @@ diff -up openssl-1.1.1i/crypto/chacha/asm/chacha-armv8.pl.arm-update openssl-1.1
  	(s/\brev32\.16\b/rev32/ and (s/\.4s/\.8h/g or 1));
  
  	#s/\bq([0-9]+)#(lo|hi)/sprintf "d%d",2*$1+($2 eq "hi")/geo;
-diff -up openssl-1.1.1i/crypto/modes/asm/ghashv8-armx.pl.arm-update openssl-1.1.1i/crypto/modes/asm/ghashv8-armx.pl
---- openssl-1.1.1i/crypto/modes/asm/ghashv8-armx.pl.arm-update	2020-12-08 14:20:59.000000000 +0100
-+++ openssl-1.1.1i/crypto/modes/asm/ghashv8-armx.pl	2020-12-09 10:37:38.408558954 +0100
+diff --git a/crypto/modes/asm/ghashv8-armx.pl b/crypto/modes/asm/ghashv8-armx.pl
+index d0e398b50a..7f0cf26b1a 100644
+--- a/crypto/modes/asm/ghashv8-armx.pl
++++ b/crypto/modes/asm/ghashv8-armx.pl
 @@ -42,6 +42,7 @@
  # Denver	0.51		0.65		6.02
  # Mongoose	0.65		1.10		8.06
@@ -3660,9 +4255,10 @@ diff -up openssl-1.1.1i/crypto/modes/asm/ghashv8-armx.pl.arm-update openssl-1.1.
  #
  # (*)	presented for reference/comparison purposes;
  
-diff -up openssl-1.1.1i/crypto/poly1305/asm/poly1305-armv8.pl.arm-update openssl-1.1.1i/crypto/poly1305/asm/poly1305-armv8.pl
---- openssl-1.1.1i/crypto/poly1305/asm/poly1305-armv8.pl.arm-update	2020-12-08 14:20:59.000000000 +0100
-+++ openssl-1.1.1i/crypto/poly1305/asm/poly1305-armv8.pl	2020-12-09 10:37:38.408558954 +0100
+diff --git a/crypto/poly1305/asm/poly1305-armv8.pl b/crypto/poly1305/asm/poly1305-armv8.pl
+index 2a42b64a92..f28e2ab780 100755
+--- a/crypto/poly1305/asm/poly1305-armv8.pl
++++ b/crypto/poly1305/asm/poly1305-armv8.pl
 @@ -29,6 +29,7 @@
  # X-Gene	2.13/+68%	2.27
  # Mongoose	1.77/+75%	1.12
@@ -3671,9 +4267,10 @@ diff -up openssl-1.1.1i/crypto/poly1305/asm/poly1305-armv8.pl.arm-update openssl
  #
  # (*)	estimate based on resources availability is less than 1.0,
  #	i.e. measured result is worse than expected, presumably binary
-diff -up openssl-1.1.1i/crypto/sha/asm/keccak1600-armv8.pl.arm-update openssl-1.1.1i/crypto/sha/asm/keccak1600-armv8.pl
---- openssl-1.1.1i/crypto/sha/asm/keccak1600-armv8.pl.arm-update	2020-12-08 14:20:59.000000000 +0100
-+++ openssl-1.1.1i/crypto/sha/asm/keccak1600-armv8.pl	2020-12-09 10:37:38.408558954 +0100
+diff --git a/crypto/sha/asm/keccak1600-armv8.pl b/crypto/sha/asm/keccak1600-armv8.pl
+index ce5df4d6de..61af089e3f 100755
+--- a/crypto/sha/asm/keccak1600-armv8.pl
++++ b/crypto/sha/asm/keccak1600-armv8.pl
 @@ -51,6 +51,7 @@
  # Kryo		12
  # Denver	7.8
@@ -3682,9 +4279,10 @@ diff -up openssl-1.1.1i/crypto/sha/asm/keccak1600-armv8.pl.arm-update openssl-1.
  #
  # (*)	Corresponds to SHA3-256. No improvement coefficients are listed
  #	because they vary too much from compiler to compiler. Newer
-diff -up openssl-1.1.1i/crypto/sha/asm/sha1-armv8.pl.arm-update openssl-1.1.1i/crypto/sha/asm/sha1-armv8.pl
---- openssl-1.1.1i/crypto/sha/asm/sha1-armv8.pl.arm-update	2020-12-08 14:20:59.000000000 +0100
-+++ openssl-1.1.1i/crypto/sha/asm/sha1-armv8.pl	2020-12-09 10:37:38.408558954 +0100
+diff --git a/crypto/sha/asm/sha1-armv8.pl b/crypto/sha/asm/sha1-armv8.pl
+index 557cabc018..ef030a2d32 100644
+--- a/crypto/sha/asm/sha1-armv8.pl
++++ b/crypto/sha/asm/sha1-armv8.pl
 @@ -27,6 +27,7 @@
  # X-Gene				8.80 (+200%)
  # Mongoose	2.05			6.50 (+160%)
@@ -3693,9 +4291,10 @@ diff -up openssl-1.1.1i/crypto/sha/asm/sha1-armv8.pl.arm-update openssl-1.1.1i/c
  #
  # (*)	Software results are presented mostly for reference purposes.
  # (**)	Keep in mind that Denver relies on binary translation, which
-diff -up openssl-1.1.1i/crypto/sha/asm/sha512-armv8.pl.arm-update openssl-1.1.1i/crypto/sha/asm/sha512-armv8.pl
---- openssl-1.1.1i/crypto/sha/asm/sha512-armv8.pl.arm-update	2020-12-08 14:20:59.000000000 +0100
-+++ openssl-1.1.1i/crypto/sha/asm/sha512-armv8.pl	2020-12-09 10:37:38.408558954 +0100
+diff --git a/crypto/sha/asm/sha512-armv8.pl b/crypto/sha/asm/sha512-armv8.pl
+index 3188c905ea..b1d516ff8d 100644
+--- a/crypto/sha/asm/sha512-armv8.pl
++++ b/crypto/sha/asm/sha512-armv8.pl
 @@ -28,6 +28,7 @@
  # X-Gene			20.0 (+100%)	12.8 (+300%(***))
  # Mongoose	2.36		13.0 (+50%)	8.36 (+33%)
@@ -3704,3 +4303,6 @@ diff -up openssl-1.1.1i/crypto/sha/asm/sha512-armv8.pl.arm-update openssl-1.1.1i
  #
  # (*)	Software SHA256 results are of lesser relevance, presented
  #	mostly for informational purposes.
+-- 
+2.41.0
+
