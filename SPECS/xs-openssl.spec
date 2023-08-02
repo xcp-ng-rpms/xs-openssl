@@ -23,13 +23,13 @@
 
 Summary: Utilities from the general purpose cryptography library with TLS implementation
 Name: xs-openssl
-Version: 1.1.1k
+Version: 1.1.1u
 Release: 6.2%{?dist}
 Epoch: 1
 # We have to remove certain patented algorithms from the openssl source
 # tarball with the hobble-openssl script which is included below.
 # The original openssl upstream tarball cannot be shipped in the .src.rpm.
-Source: openssl-%{version}-hobbled.tar.xz
+Source: openssl-%{version}.tar.gz
 Source1: hobble-openssl
 Source2: Makefile.certificate
 Source6: make-dummy-cert
