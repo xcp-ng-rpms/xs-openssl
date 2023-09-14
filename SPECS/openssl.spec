@@ -22,7 +22,7 @@
 Summary: Utilities from the general purpose cryptography library with TLS implementation
 Name: openssl
 Version: 1.1.1k
-Release: 6%{?dist}
+Release: 9%{?dist}
 Epoch: 1
 # We have to remove certain patented algorithms from the openssl source
 # tarball with the hobble-openssl script which is included below.
@@ -83,6 +83,15 @@ Patch74: openssl-1.1.1-addrconfig.patch
 Patch75: openssl-1.1.1-tls13-curves.patch
 Patch81: openssl-1.1.1-read-buff.patch
 Patch82: openssl-1.1.1-cve-2022-0778.patch
+Patch83: openssl-1.1.1-replace-expired-certs.patch
+Patch84: openssl-1.1.1-cve-2022-1292.patch
+Patch85: openssl-1.1.1-cve-2022-2068.patch
+Patch86: openssl-1.1.1-cve-2022-2097.patch
+#OpenSSL 1.1.1t CVEs
+Patch101: openssl-1.1.1-cve-2022-4304-RSA-oracle.patch
+Patch102: openssl-1.1.1-cve-2022-4450-PEM-bio.patch
+Patch103: openssl-1.1.1-cve-2023-0215-BIO-UAF.patch
+Patch104: openssl-1.1.1-cve-2023-0286-X400.patch
 
 License: OpenSSL and ASL 2.0
 URL: http://www.openssl.org/
@@ -204,7 +213,14 @@ cp %{SOURCE13} test/
 %patch80 -p1 -b .s390x-test-aes
 %patch81 -p1 -b .read-buff
 %patch82 -p1 -b .cve-2022-0778
-
+%patch83 -p1 -b .replace-expired-certs
+%patch84 -p1 -b .cve-2022-1292
+%patch85 -p1 -b .cve-2022-2068
+%patch86 -p1 -b .cve-2022-2097
+%patch101 -p1 -b .cve-2022-4304
+%patch102 -p1 -b .cve-2022-4450
+%patch103 -p1 -b .cve-2023-0215
+%patch104 -p1 -b .cve-2023-0286
 
 %build
 # Figure out which flags we want to use.
@@ -488,13 +504,37 @@ export LD_LIBRARY_PATH
 %postun libs -p /sbin/ldconfig
 
 %changelog
+* Wed Feb 08 2023 Dmitry Belyavskiy <dbelyavs@redhat.com> - 1:1.1.1k-9
+- Fixed Timing Oracle in RSA Decryption
+  Resolves: CVE-2022-4304
+- Fixed Double free after calling PEM_read_bio_ex
+  Resolves: CVE-2022-4450
+- Fixed Use-after-free following BIO_new_NDEF
+  Resolves: CVE-2023-0215
+- Fixed X.400 address type confusion in X.509 GeneralName
+  Resolves: CVE-2023-0286
+
+* Thu Jul 21 2022 Dmitry Belyavskiy <dbelyavs@redhat.com> - 1:1.1.1k-8
+- Fix no-ec build
+  Resolves: rhbz#2071020
+
+* Tue Jul 05 2022 Clemens Lang <cllang@redhat.com> - 1:1.1.1k-7
+- Fix CVE-2022-2097: AES OCB fails to encrypt some bytes on 32-bit x86
+  Resolves: CVE-2022-2097
+- Update expired certificates used in the testsuite
+  Resolves: rhbz#2092462
+- Fix CVE-2022-1292: openssl: c_rehash script allows command injection
+  Resolves: rhbz#2090372
+- Fix CVE-2022-2068: the c_rehash script allows command injection
+  Resolves: rhbz#2098279
+
 * Wed Mar 23 2022 Clemens Lang <cllang@redhat.com> - 1:1.1.1k-6
 - Fixes CVE-2022-0778 openssl: Infinite loop in BN_mod_sqrt() reachable when parsing certificates
-- Resolves: rhbz#2067144
+- Resolves: rhbz#2067146
 
-* Fri Nov 12 2021 Sahana Prasad <sahana@redhat.com> - 1:1.1.1k-5
-- CVE-2021-3712 openssl: Read buffer overruns processing ASN.1 strings
-- Resolves: rhbz#2005400
+* Tue Nov 16 2021 Sahana Prasad <sahana@redhat.com> - 1:1.1.1k-5
+- Fixes CVE-2021-3712 openssl: Read buffer overruns processing ASN.1 strings
+- Resolves: rhbz#2005402
 
 * Fri Jul 16 2021 Sahana Prasad <sahana@redhat.com> - 1:1.1.1k-4
 - Fixes bugs in s390x AES code.
