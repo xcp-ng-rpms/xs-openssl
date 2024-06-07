@@ -24,7 +24,7 @@
 Summary: Utilities from the general purpose cryptography library with TLS implementation
 Name: xs-openssl
 Version: 1.1.1k
-Release: 12.1%{?dist}
+Release: 12.2%{?dist}
 Epoch: 1
 # We have to remove certain patented algorithms from the openssl source
 # tarball with the hobble-openssl script which is included below.
@@ -339,7 +339,7 @@ SYS_CIPHERS_FILE=
 	$SYS_CIPHERS_FILE \
 	enable-camellia enable-seed enable-rfc3779 enable-sctp \
 	enable-cms enable-md2 enable-rc5\
-	enable-weak-ssl-ciphers \
+	no-weak-ssl-ciphers \
 	no-mdc2 no-ec2m no-sm2 no-sm4 \
 	shared  ${sslarch} $RPM_OPT_FLAGS '-DDEVRANDOM="\"/dev/urandom\""'
 
