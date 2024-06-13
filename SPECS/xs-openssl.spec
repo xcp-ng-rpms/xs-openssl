@@ -339,7 +339,7 @@ SYS_CIPHERS_FILE=
 	$SYS_CIPHERS_FILE \
 	enable-camellia enable-seed enable-rfc3779 enable-sctp \
 	enable-cms enable-md2 enable-rc5\
-	enable-weak-ssl-ciphers \
+	no-weak-ssl-ciphers \
 	no-mdc2 no-ec2m no-sm2 no-sm4 \
 	shared  ${sslarch} $RPM_OPT_FLAGS '-DDEVRANDOM="\"/dev/urandom\""'
 
@@ -552,10 +552,11 @@ export LD_LIBRARY_PATH
 %postun libs -p /sbin/ldconfig
 
 %changelog
-* Mon Jun 24 2024 David Morel <david.morel@vates.tech> - WIP - 1:1.1.1k-12.1
+* Mon Jun 24 2024 David Morel <david.morel@vates.tech> - 1:1.1.1k-12.1
 - Sync with Centos 8 Stream's 1.1.1k-12.
 - Do not package openssl.cnf at all for xs-openssl, the system-wide one will be
   the one packaged with openssl.
+- disable weak ciphers at compile time
 - *** Upstream changelog ***
 - * Thu Nov 30 2023 Dmitry Belyavskiy <dbelyavs@redhat.com> - 1:1.1.1k-12
 - - Backport implicit rejection mechanism for RSA PKCS#1 v1.5 to RHEL-8 series
