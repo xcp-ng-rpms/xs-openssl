@@ -453,7 +453,6 @@ mkdir -m755 $RPM_BUILD_ROOT%{_sysconfdir}/pki/CA/newcerts
 
 # Ensure the config file timestamps are identical across builds to avoid
 # mulitlib conflicts and unnecessary renames on upgrade
-touch -r %{SOURCE2} $RPM_BUILD_ROOT%{_sysconfdir}/pki/tls/openssl.cnf
 touch -r %{SOURCE2} $RPM_BUILD_ROOT%{_sysconfdir}/pki/tls/ct_log_list.cnf
 
 rm -f $RPM_BUILD_ROOT%{_sysconfdir}/pki/tls/openssl.cnf.dist
@@ -507,7 +506,10 @@ export LD_LIBRARY_PATH
 %dir %{_sysconfdir}/pki/tls/certs
 %dir %{_sysconfdir}/pki/tls/misc
 %dir %{_sysconfdir}/pki/tls/private
-%config(noreplace) %{_sysconfdir}/pki/tls/openssl.cnf
+# XCP-ng: do not package openssl.cnf as it conflicts with the base
+# 'openssl-libs' one and we need to install 'xs-openssl' in build env in order
+# to build openvswitch linked with 'xs-openssl' instead of 'openssl'.
+%exclude %{_sysconfdir}/pki/tls/openssl.cnf
 %config(noreplace) %{_sysconfdir}/pki/tls/ct_log_list.cnf
 
 %files libs
@@ -552,6 +554,8 @@ export LD_LIBRARY_PATH
 %changelog
 * Mon Jun 24 2024 David Morel <david.morel@vates.tech> - WIP - 1:1.1.1k-12.1
 - Sync with Centos 8 Stream's 1.1.1k-12.
+- Do not package openssl.cnf at all for xs-openssl, the system-wide one will be
+  the one packaged with openssl.
 - *** Upstream changelog ***
 - * Thu Nov 30 2023 Dmitry Belyavskiy <dbelyavs@redhat.com> - 1:1.1.1k-12
 - - Backport implicit rejection mechanism for RSA PKCS#1 v1.5 to RHEL-8 series
