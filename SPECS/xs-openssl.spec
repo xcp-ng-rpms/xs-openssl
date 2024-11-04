@@ -24,7 +24,7 @@
 Summary: Utilities from the general purpose cryptography library with TLS implementation
 Name: xs-openssl
 Version: 1.1.1k
-Release: 12.2%{?dist}
+Release: 12.3%{?dist}
 Epoch: 1
 # We have to remove certain patented algorithms from the openssl source
 # tarball with the hobble-openssl script which is included below.
@@ -339,7 +339,7 @@ SYS_CIPHERS_FILE=
 	$SYS_CIPHERS_FILE \
 	enable-camellia enable-seed enable-rfc3779 enable-sctp \
 	enable-cms enable-md2 enable-rc5\
-	no-weak-ssl-ciphers \
+	enable-weak-ssl-ciphers \
 	no-mdc2 no-ec2m no-sm2 no-sm4 \
 	shared  ${sslarch} $RPM_OPT_FLAGS '-DDEVRANDOM="\"/dev/urandom\""'
 
@@ -552,6 +552,9 @@ export LD_LIBRARY_PATH
 %postun libs -p /sbin/ldconfig
 
 %changelog
+* Mon Nov 04 2024 David Morel <david.morel@vates.tech> - 1:1.1.1k-12.3
+- Revert weak ciphers change
+
 * Fri Mar 31 2024 David Morel <david.morel@vates.tech> - 1:1.1.1k-12.2
 - Sync with Centos 8 Stream's 1.1.1k-12.
 - Do not package openssl.cnf at all for xs-openssl, the system-wide one will be
